@@ -494,9 +494,10 @@ export function AuraRedemptionNFT() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => copyToClipboard(code.code)}
-                                className="border-concordia-light-purple/50 text-white hover:bg-concordia-light-purple/20"
+                                className="border-concordia-light-purple/50 text-white hover:bg-concordia-light-purple/20 flex items-center"
                               >
-                                <Copy className="h-4 w-4" />
+                                <Copy className="h-4 w-4 mr-1" />
+                                Copy Redemption Code
                               </Button>
                             </div>
                           </div>

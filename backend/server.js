@@ -5,6 +5,8 @@ const { ethers } = require("ethers")
 const multer = require("multer")
 const crypto = require("crypto")
 require("dotenv").config()
+const nodemailer = require("nodemailer");
+const { OpenAI } = require("openai");
 
 const app = express()
 const PORT = process.env.PORT || 3002
@@ -101,6 +103,69 @@ function generateObjectId() {
 function sanitizeFileName(fileName) {
   return fileName.replace(/[^a-zA-Z0-9.-]/g, "_")
 }
+
+// Configure nodemailer (example with Gmail SMTP)
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.NOTIFY_EMAIL, // set in .env
+    pass: process.env.NOTIFY_EMAIL_PASS, // set in .env
+  },
+});
+
+// Configure OpenAI
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// Helper to generate AI message
+async function generateAIDueDateMessage(memberName, groupName, dueDate) {
+  const prompt = `Write a friendly reminder email for ${memberName} that their payment is due for the group savings \"${groupName}\" on ${dueDate}.`;
+  const completion = await openai.chat.completions.create({
+    model: "gpt-3.5-turbo",
+    messages: [{ role: "user", content: prompt }],
+    max_tokens: 120,
+  });
+  return completion.choices[0].message.content;
+}
+
+// Endpoint to send due date notifications
+app.post("/api/notify-due-date", async (req, res) => {
+  const { groupId } = req.body;
+  if (!groupId) return res.status(400).json({ error: "groupId required" });
+
+  try {
+    // Fetch group data from Greenfield
+    const objectName = `groups/group_${groupId}.json`;
+    const objectData = await greenfieldClient.object.downloadFile({
+      bucketName: GREENFIELD_CONFIG.bucketName,
+      objectName,
+    });
+    const group = JSON.parse(objectData.toString());
+
+    // For each member with an email, send notification
+    for (const member of group.members) {
+      if (member.email) {
+        // Generate AI message
+        const message = await generateAIDueDateMessage(
+          member.nickname,
+          group.name,
+          group.nextContribution // or due date
+        );
+
+        // Send email
+        await transporter.sendMail({
+          from: process.env.NOTIFY_EMAIL,
+          to: member.email,
+          subject: `Payment Due Reminder: ${group.name}`,
+          text: message,
+        });
+      }
+    }
+    res.json({ success: true, message: "Notifications sent" });
+  } catch (error) {
+    console.error("Error sending due date notifications:", error);
+    res.status(500).json({ error: "Failed to send notifications", details: error.message });
+  }
+});
 
 // API Routes
 

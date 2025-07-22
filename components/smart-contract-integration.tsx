@@ -9,7 +9,7 @@ import { Loader2, CheckCircle, AlertCircle, ExternalLink, Database, Shield } fro
 import { greenfieldService, type GroupMetadata } from "@/lib/greenfield-service"
 
 // Updated Concordia Smart Contract ABI
-const CONCORDIA_CONTRACT_ABI = [
+export const CONCORDIA_CONTRACT_ABI = [
   {
     inputs: [
       { name: "_name", type: "string" },

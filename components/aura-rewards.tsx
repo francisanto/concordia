@@ -468,16 +468,6 @@ export function AuraRewards({ userAuraPoints, onAuraPointsUpdate, onBackToDashbo
         {/* Corner Elements */}
         <div className="relative flex justify-between items-start mb-12">
           {/* Back to Dashboard Button - Top Left */}
-          {onBackToDashboard && (
-            <Button
-              onClick={onBackToDashboard}
-              variant="outline"
-              className="border-2 border-concordia-light-purple/60 text-concordia-light-purple hover:bg-concordia-light-purple/15 transition-all duration-300 hover:scale-105 hover:shadow-xl rounded-xl px-4 py-2"
-            >
-              <Home className="h-4 w-4 mr-2" />
-              Back to Dashboard
-            </Button>
-          )}
 
           {/* Aura Points Display - Top Right */}
           <div className="relative flex items-center space-x-3 p-3 bg-gradient-to-r from-concordia-pink/10 via-concordia-light-purple/10 to-concordia-pink/10 border-2 border-concordia-pink/30 rounded-xl shadow-lg backdrop-blur-sm z-10">

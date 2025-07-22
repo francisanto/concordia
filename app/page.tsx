@@ -36,7 +36,7 @@ function ClientOnly({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
-function WalletConnection() {
+function WalletConnection({ handleDisconnect }: { handleDisconnect: () => void }) {
   const { address, isConnected, chainId } = useAccount()
   const { connect, connectors, error, isPending } = useConnect()
   const { disconnect } = useDisconnect()
@@ -85,51 +85,6 @@ function WalletConnection() {
         alert("Connection is already pending. Please check MetaMask for the connection request.")
       } else {
         alert("Failed to connect wallet. Please make sure MetaMask is installed and unlocked.")
-      }
-    }
-  }
-
-  const handleDisconnect = () => {
-    try {
-      console.log("🔌 Attempting to disconnect wallet...")
-      
-      // First try the proper disconnect
-    disconnect()
-      
-      // Force clear any remaining connection state
-      if (typeof window !== 'undefined') {
-        // Clear any stored connection data
-        localStorage.removeItem('wagmi.connected')
-        localStorage.removeItem('wagmi.wallet')
-        localStorage.removeItem('wagmi.account')
-        
-        // Clear ethereum listeners if available
-        if (window.ethereum) {
-          window.ethereum.removeAllListeners()
-        }
-      }
-      
-      // Clear user groups and redirect to home page
-      setUserGroups([])
-      setActiveTab("home")
-      setAutoRedirectDone(false) // Reset redirect flag
-      
-      console.log("✅ Wallet disconnected successfully and redirected to home")
-    } catch (error) {
-      console.error("❌ Error disconnecting wallet:", error)
-      // Even if disconnect fails, try to clear state and redirect
-      try {
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('wagmi.connected')
-          localStorage.removeItem('wagmi.wallet')
-          localStorage.removeItem('wagmi.account')
-        }
-        // Still redirect to home page
-        setUserGroups([])
-        setActiveTab("home")
-        setAutoRedirectDone(false)
-      } catch (e) {
-        console.error("❌ Error clearing storage:", e)
       }
     }
   }
@@ -225,9 +180,44 @@ export default function HomePage() {
   const [isLoadingGroups, setIsLoadingGroups] = useState(false)
   const [userAuraPoints, setUserAuraPoints] = useState(0)
   const { toast } = useToast()
-
-  // New state to track if the automatic redirect has already occurred
+  const { disconnect } = useDisconnect();
   const [autoRedirectDone, setAutoRedirectDone] = useState(false)
+
+  // Move handleDisconnect inside HomePage
+  const handleDisconnect = () => {
+    try {
+      console.log("🔌 Attempting to disconnect wallet...");
+      // First try the proper disconnect
+      disconnect();
+      // Force clear any remaining connection state
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('wagmi.connected');
+        localStorage.removeItem('wagmi.wallet');
+        localStorage.removeItem('wagmi.account');
+        if (window.ethereum) {
+          window.ethereum.removeAllListeners();
+        }
+      }
+      setUserGroups([]);
+      setActiveTab("home");
+      setAutoRedirectDone(false);
+      console.log("✅ Wallet disconnected successfully and redirected to home");
+    } catch (error) {
+      console.error("❌ Error disconnecting wallet:", error);
+      try {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('wagmi.connected');
+          localStorage.removeItem('wagmi.wallet');
+          localStorage.removeItem('wagmi.account');
+        }
+        setUserGroups([]);
+        setActiveTab("home");
+        setAutoRedirectDone(false);
+      } catch (e) {
+        console.error("❌ Error clearing storage:", e);
+      }
+    }
+  };
 
   // Load groups from storage when wallet connects
   useEffect(() => {
@@ -276,7 +266,8 @@ export default function HomePage() {
           status: group.status || "active",
           nextContribution: group.nextContribution || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
           createdBy: group.createdBy || group.creator || "",
-          createdAt: group.createdAt || new Date().toISOString()
+          createdAt: group.createdAt || new Date().toISOString(),
+          isActive: group.isActive !== undefined ? group.isActive : true,
         }));
         
         setUserGroups(formattedGroups);
@@ -377,7 +368,8 @@ export default function HomePage() {
           status: "active",
           nextContribution: groupData.nextContribution,
           createdBy: groupData.creator,
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          isActive: true
         };
         
         setUserGroups(prev => [...prev, newGroup]);
@@ -401,33 +393,7 @@ export default function HomePage() {
         duration: 5000,
       });
       
-      // Still add to local state for immediate feedback
-      const newGroup: SavingsGroup = {
-        id: groupData.id,
-        name: groupData.name,
-        goal: groupData.description,
-        targetAmount: groupData.targetAmount,
-        currentAmount: groupData.currentAmount,
-        contributionAmount: groupData.contributionAmount,
-        duration: groupData.duration,
-        endDate: groupData.withdrawalDate,
-        members: [
-          {
-            address: groupData.creator,
-            nickname: "Creator",
-            contributed: groupData.currentAmount,
-            auraPoints: 10,
-            status: "active"
-          }
-        ],
-        status: "active",
-        nextContribution: groupData.nextContribution,
-        createdBy: groupData.creator,
-        createdAt: new Date().toISOString()
-      };
-      
-      setUserGroups(prev => [...prev, newGroup]);
-      console.log("⚠️ Group added locally (storage error):", newGroup.id);
+    
     }
   };
 
@@ -702,7 +668,8 @@ export default function HomePage() {
           status: group.status || "active",
           nextContribution: group.nextContribution || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
           createdBy: group.createdBy || group.creator || "",
-          createdAt: group.createdAt || new Date().toISOString()
+          createdAt: group.createdAt || new Date().toISOString(),
+          isActive: group.isActive !== undefined ? group.isActive : true,
         }));
         
         setUserGroups(formattedGroups);
@@ -813,55 +780,55 @@ export default function HomePage() {
               {"Home"}
             </button>
             <ClientOnly>
-              {isConnected && (
-                <button
-                  onClick={() => setActiveTab("dashboard")}
-                  className={
-                    "font-medium transition-colors " +
-                    (activeTab === "dashboard" ? "text-concordia-pink" : "text-white/80 hover:text-concordia-pink")
-                  }
-                >
-                  {"Dashboard"}
-                </button>
-              )}
-              {isConnected && (
-                <button
-                  onClick={() => setActiveTab("create")}
-                  className={
-                    "font-medium transition-colors " +
-                    (activeTab === "create" ? "text-concordia-pink" : "text-white/80 hover:text-concordia-pink")
-                  }
-                >
-                  {"Create Group"}
-                </button>
-              )}
-              {isConnected && (
-                <button
-                  onClick={() => setActiveTab("aura")}
-                  className={
-                    "font-medium transition-colors " +
-                    (activeTab === "aura" ? "text-concordia-pink" : "text-white/80 hover:text-concordia-pink")
-                  }
-                >
-                  {"Aura Rewards"}
-                </button>
-              )}
-              {isConnected && (
-                <button
-                  onClick={() => setActiveTab("nfts")}
-                  className={
-                    "font-medium transition-colors " +
-                    (activeTab === "nfts" ? "text-concordia-pink" : "text-white/80 hover:text-concordia-pink")
-                  }
-                >
-                  {"My NFTs"}
-                </button>
-              )}
+              <button
+                onClick={() => setActiveTab("dashboard")}
+                className={
+                  "font-medium transition-colors " +
+                  (activeTab === "dashboard" ? "text-concordia-pink" : "text-white/80 hover:text-concordia-pink")
+                }
+                disabled={!isConnected}
+                style={!isConnected ? { opacity: 0.5, pointerEvents: "none" } : {}}
+              >
+                {"Dashboard"}
+              </button>
+              <button
+                onClick={() => setActiveTab("create")}
+                className={
+                  "font-medium transition-colors " +
+                  (activeTab === "create" ? "text-concordia-pink" : "text-white/80 hover:text-concordia-pink")
+                }
+                disabled={!isConnected}
+                style={!isConnected ? { opacity: 0.5, pointerEvents: "none" } : {}}
+              >
+                {"Create Group"}
+              </button>
+              <button
+                onClick={() => setActiveTab("aura")}
+                className={
+                  "font-medium transition-colors " +
+                  (activeTab === "aura" ? "text-concordia-pink" : "text-white/80 hover:text-concordia-pink")
+                }
+                disabled={!isConnected}
+                style={!isConnected ? { opacity: 0.5, pointerEvents: "none" } : {}}
+              >
+                {"Aura Rewards"}
+              </button>
+              <button
+                onClick={() => setActiveTab("nfts")}
+                className={
+                  "font-medium transition-colors " +
+                  (activeTab === "nfts" ? "text-concordia-pink" : "text-white/80 hover:text-concordia-pink")
+                }
+                disabled={!isConnected}
+                style={!isConnected ? { opacity: 0.5, pointerEvents: "none" } : {}}
+              >
+                {"My NFTs"}
+              </button>
             </ClientOnly>
           </div>
 
           <div className="flex items-center space-x-4">
-            <WalletConnection />
+            <WalletConnection handleDisconnect={handleDisconnect} />
           </div>
         </div>
       </nav>
@@ -924,7 +891,7 @@ export default function HomePage() {
                           "Connect your MetaMask wallet to start creating savings groups and managing your funds securely on the blockchain."
                         }
                       </p>
-                      <WalletConnection />
+                      <WalletConnection handleDisconnect={handleDisconnect} />
                       <div className="mt-4 text-sm text-white/60">{"Make sure you're connected to opBNB Testnet"}</div>
                     </CardContent>
                   </Card>
@@ -1015,6 +982,8 @@ export default function HomePage() {
                 onContribute={handleContribution}
                 isContributing={isContributing}
                 setUserGroups={setUserGroups}
+                isConnected={isConnected}
+                address={address}
               />
               {isLoadingGroups && (
                 <div className="text-center py-8">

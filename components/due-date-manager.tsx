@@ -68,7 +68,7 @@ export function DueDateManager({ isOpen, onClose, group, onUpdate }: DueDateMana
                 <SelectValue placeholder="Select day of month" />
               </SelectTrigger>
               <SelectContent className="bg-concordia-purple border-concordia-light-purple/50">
-                {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
+                {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
                   <SelectItem
                     key={day}
                     value={day.toString()}
@@ -81,7 +81,7 @@ export function DueDateManager({ isOpen, onClose, group, onUpdate }: DueDateMana
               </SelectContent>
             </Select>
             <p className="text-sm text-white/60">
-              Choose which day of each month contributions are due (1-28 to ensure all months are valid)
+              Choose which day of each month contributions are due (1-31; months with fewer days will use the last valid day)
             </p>
           </div>
 

@@ -24,6 +24,13 @@ import {
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
+// Unicode-safe base64 encoding for SVGs with emoji
+function toBase64Unicode(str: string) {
+  return typeof window !== 'undefined'
+    ? window.btoa(unescape(encodeURIComponent(str)))
+    : Buffer.from(str, 'utf-8').toString('base64');
+}
+
 // AuraRedemptionNFT Contract ABI (simplified)
 const AURA_REDEMPTION_ABI = [
   {
@@ -118,7 +125,6 @@ export function NFTWalletDisplay() {
     abi: AURA_REDEMPTION_ABI,
     functionName: 'getRedemptionCodesForAddress',
     args: [address as `0x${string}`],
-    enabled: isConnected && !!address,
   })
 
   // Load user's NFT tokens
@@ -150,7 +156,7 @@ export function NFTWalletDisplay() {
     return {
       name: `${tierNames[tier - 1]} Aura Redemption Code`,
       description: `A rare ${tierNames[tier - 1].toLowerCase()} tier Aura redemption code worth ${auraAmount} Aura Points.`,
-      image: `data:image/svg+xml;base64,${btoa(`
+      image: `data:image/svg+xml;base64,${toBase64Unicode(`
         <svg width="300" height="300" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -182,15 +188,6 @@ export function NFTWalletDisplay() {
       4: { name: "Platinum", color: "bg-purple-500/20 border-purple-500/30", icon: "💎", gradient: "from-purple-400 to-purple-600" }
     }
     return tiers[tier as keyof typeof tiers] || tiers[1]
-  }
-
-  const copyToClipboard = (code: string) => {
-    navigator.clipboard.writeText(code)
-    toast({
-      title: "📋 Code Copied!",
-      description: "Redemption code copied to clipboard",
-      duration: 2000,
-    })
   }
 
   const viewOnExplorer = (tokenId: number) => {
@@ -324,17 +321,6 @@ export function NFTWalletDisplay() {
                           variant="ghost"
                           onClick={(e) => {
                             e.stopPropagation()
-                            copyToClipboard(nft.code)
-                          }}
-                          className="h-8 w-8 p-0 text-white/70 hover:text-white hover:bg-white/10"
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.stopPropagation()
                             viewOnExplorer(nft.tokenId)
                           }}
                           className="h-8 w-8 p-0 text-white/70 hover:text-white hover:bg-white/10"
@@ -445,13 +431,6 @@ export function NFTWalletDisplay() {
                 </div>
 
                 <div className="flex space-x-2">
-                  <Button
-                    onClick={() => copyToClipboard(selectedNFT.code)}
-                    className="flex-1 bg-concordia-pink hover:bg-concordia-pink/80"
-                  >
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copy Code
-                  </Button>
                   <Button
                     onClick={() => viewOnExplorer(selectedNFT.tokenId)}
                     variant="outline"
