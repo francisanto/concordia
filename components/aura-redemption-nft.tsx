@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useAccount, useContractRead, useContractWrite, useWaitForTransaction } from "wagmi"
+import { useAccount, useContractRead, useContractWrite, useTransaction } from "wagmi"
 import { opBNBTestnet } from "wagmi/chains"
 import { 
   Gift, 
@@ -155,7 +155,6 @@ export function AuraRedemptionNFT() {
     abi: AURA_REDEMPTION_ABI,
     functionName: 'getRedemptionCodesForAddress',
     args: [address as `0x${string}`],
-    enabled: isConnected && !!address,
   })
 
   // Contract writes
@@ -170,7 +169,7 @@ export function AuraRedemptionNFT() {
   })
 
   // Wait for transaction
-  const { isLoading: isConfirming, isSuccess: isRedeemed } = useWaitForTransaction({
+  const { isLoading: isConfirming, isSuccess: isRedeemed } = useTransaction({
     hash: redeemTx?.hash,
   })
 
