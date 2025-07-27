@@ -6,7 +6,7 @@
     "build": "next build",
     "dev": "next dev",
     "lint": "next lint",
-    "start": "next start",
+    "start": "next start -p $PORT",
     "start:railway": "npm start",
     "start:frontend": "next start -p $PORT",
     "start:backend": "cd backend && npm start",
