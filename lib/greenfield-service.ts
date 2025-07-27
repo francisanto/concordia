@@ -75,7 +75,7 @@ export class GreenfieldService {
 
   constructor() {
     // Use relative URLs for API routes in Next.js
-    this.apiBaseUrl = typeof window !== 'undefined' ? '' : 'http://localhost:3000';
+    this.apiBaseUrl = typeof window !== 'undefined' ? '' : 'https://concordia-production.up.railway.app';
     this.contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '';
     
     // Use your specific bucket ID
