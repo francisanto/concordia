@@ -13,7 +13,6 @@ import { useAccount, useConnect, useDisconnect, useSwitchChain } from "wagmi"
 import { opBNBTestnet } from "wagmi/chains"
 import { GroupDashboard, type SavingsGroup } from "@/components/group-dashboard"
 import { SmartContractIntegration } from "@/components/smart-contract-integration"
-import { hybridStorageService, type GroupMetadata } from "@/lib/hybrid-storage"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { SparkleBackground } from "@/components/sparkle-background"
 import { AuraRewards } from "@/components/aura-rewards"
@@ -233,9 +232,17 @@ export default function HomePage() {
       try {
         console.log("🔄 Loading groups for wallet:", address);
         
-        // Load all groups from hybrid storage
-        const allGroups = await hybridStorageService.loadGroups();
+        // Load all groups from API route (Greenfield)
+        const response = await fetch('/api/groups');
+        const result = await response.json();
         
+        if (!result.success) {
+          throw new Error(result.error || "Failed to load groups from API");
+        }
+        
+        const allGroups = result.groups || [];
+        console.log("📊 All groups from Greenfield:", allGroups.length);
+   
         // Filter groups where the current user is either creator or member
         const userGroups = allGroups.filter((group: any) => {
           const isCreator = group.creator?.toLowerCase() === address.toLowerCase();
@@ -271,13 +278,13 @@ export default function HomePage() {
         }));
         
         setUserGroups(formattedGroups);
-        console.log("✅ User's groups loaded from hybrid storage:", formattedGroups.length);
+        console.log("✅ User's groups loaded from Greenfield:", formattedGroups.length);
         
         // Show success message if groups were loaded
         if (formattedGroups.length > 0) {
           toast({
             title: "📊 Dashboard Loaded",
-            description: `Found ${formattedGroups.length} group(s) from hybrid storage`,
+            description: `Found ${formattedGroups.length} group(s) from BNB Greenfield`,
             duration: 3000,
           });
         }
@@ -288,63 +295,67 @@ export default function HomePage() {
         
         toast({
           title: "⚠️ Loading Error",
-          description: "Failed to load groups. Please try refreshing the page.",
+          description: "Failed to load groups from BNB Greenfield. Please try refreshing the page.",
           duration: 5000,
         });
       } finally {
         setIsLoadingGroups(false);
       }
     };
-    
+   
     loadGroups();
   }, [isConnected, address, toast]);
 
-  // Save groups using localStorage
+  // Save groups using API route
   const saveGroup = async (groupData: any) => {
     try {
-      console.log("💾 Saving group to localStorage:", groupData);
+      console.log("💾 Saving group via API route:", groupData);
       
-      // Convert to GroupMetadata format for hybrid storage
-      const localGroupData: GroupMetadata = {
-        id: groupData.id,
-        name: groupData.name,
-        description: groupData.description,
-        creator: groupData.creator,
-        contributionAmount: groupData.targetAmount,
-        currentAmount: groupData.currentAmount,
-        targetAmount: groupData.targetAmount,
-        goal: groupData.description,
-        duration: groupData.duration,
-        endDate: groupData.withdrawalDate,
-        withdrawalDate: groupData.withdrawalDate,
-        isActive: true,
-        status: "active",
-        createdBy: groupData.creator,
-        members: [
-          {
-            address: groupData.creator,
-            nickname: "Creator",
-            contributed: groupData.currentAmount,
-            auraPoints: 10,
+      // Call the API route to store in Greenfield
+      const response = await fetch('/api/groups/store', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          groupId: groupData.id,
+          groupData: {
+            id: groupData.id,
+            name: groupData.name,
+            description: groupData.description,
+            creator: groupData.creator,
+            contributionAmount: groupData.targetAmount,
+            currentAmount: groupData.currentAmount,
+            targetAmount: groupData.targetAmount,
+            goal: groupData.description,
+            duration: groupData.duration,
+            endDate: groupData.withdrawalDate,
+            withdrawalDate: groupData.withdrawalDate,
+            isActive: true,
             status: "active",
-            role: "creator",
-            joinedAt: new Date().toISOString()
+            createdBy: groupData.creator,
+            members: [
+              {
+                address: groupData.creator,
+                nickname: "Creator",
+                contributed: groupData.currentAmount,
+                auraPoints: 10,
+                status: "active",
+                role: "creator",
+                joinedAt: new Date().toISOString()
+              }
+            ],
+            nextContribution: groupData.nextContribution,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
           }
-        ],
-        nextContribution: groupData.nextContribution,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        // Greenfield references (will be filled by hybrid storage service)
-        greenfieldBucketId: "",
-        greenfieldObjectKey: "",
-        greenfieldDataHash: ""
-      };
+        }),
+      });
 
-      // Save to hybrid storage
-      const result = await hybridStorageService.saveGroup(localGroupData);
+      const result = await response.json();
       
       if (result.success) {
-        console.log("✅ Group saved to localStorage successfully");
+        console.log("✅ Group saved to Greenfield successfully");
         
         // Add the new group to the current list immediately
         const newGroup: SavingsGroup = {
@@ -377,23 +388,23 @@ export default function HomePage() {
         
         toast({
           title: "✅ Group Created",
-          description: "Group saved to localStorage successfully",
+          description: "Group saved to BNB Greenfield successfully",
           duration: 3000,
         });
       } else {
-        throw new Error(result.error || "Failed to save to localStorage");
+        throw new Error(result.error || "Failed to save to Greenfield");
       }
       
     } catch (error) {
-      console.error("❌ Error saving group to localStorage:", error);
+      console.error("❌ Error saving group to Greenfield:", error);
       
       toast({
         title: "❌ Save Failed",
-        description: "Failed to save group to localStorage. Please try again.",
+        description: "Failed to save group to BNB Greenfield. Please try again.",
         duration: 5000,
       });
       
-    
+      throw error;
     }
   };
 
@@ -634,11 +645,15 @@ export default function HomePage() {
   const handleDeleteGroup = async (groupId: string) => {
     try {
       // Delete from hybrid storage
-      const result = await hybridStorageService.deleteGroup(groupId);
+      const response = await fetch(`/api/groups/delete/${groupId}`, {
+        method: 'DELETE',
+      });
+      const result = await response.json();
+
       if (result.success) {
-        console.log("✅ Group deleted from hybrid storage:", groupId);
+        console.log("✅ Group deleted from Greenfield successfully:", groupId);
         // Reload groups after deletion
-        const groups = await hybridStorageService.loadGroups();
+        const groups = await fetch('/api/groups').then(res => res.json()).then(data => data.groups);
         
         // Filter groups where the current user is either creator or member
         const userGroups = groups.filter((group: any) => {
@@ -674,10 +689,10 @@ export default function HomePage() {
         
         setUserGroups(formattedGroups);
       } else {
-        console.error("Failed to delete group from hybrid storage:", result.error);
+        console.error("Failed to delete group from Greenfield:", result.error);
       }
     } catch (error) {
-      console.error("Error deleting group from hybrid storage:", error);
+      console.error("Error deleting group from Greenfield:", error);
     }
   }
 
