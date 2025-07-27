@@ -101,7 +101,7 @@ export const CONCORDIA_CONTRACT_ABI = [
 ] as const
 
 // Replace with your actual deployed contract address
-const CONCORDIA_CONTRACT_ADDRESS = (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "0x31ff87832e0bc5eaee333d1db549829ba0376d45aa23a41e6b12bfe17c969595") as `0x${string}`;
+const CONCORDIA_CONTRACT_ADDRESS = (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "0x58ae7520F81DC3464574960B792D43A82BF0C3f1") as `0x${string}`;
 
 
 interface SmartContractIntegrationProps {

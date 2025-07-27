@@ -20,7 +20,7 @@ const CONTRIBUTION_ABI = [
   },
 ] as const
 
-const CONCORDIA_CONTRACT_ADDRESS = "0x1234567890123456789012345678901234567890" as const
+const CONCORDIA_CONTRACT_ADDRESS = (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "0x58ae7520F81DC3464574960B792D43A82BF0C3f1") as `0x${string}`
 
 interface ContributionModalProps {
   isOpen: boolean
