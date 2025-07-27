@@ -7,8 +7,14 @@
     "dev": "next dev",
     "lint": "next lint",
     "start": "next start",
+    "start:railway": "npm start",
+    "start:frontend": "next start -p $PORT",
+    "start:backend": "cd backend && npm start",
+    "build:railway": "npm run build && cd backend && npm install",
+    "postinstall": "cd backend && npm install",
     "deploy:contract": "npx hardhat run scripts/deploy-contract.js --network opBNBTestnet",
     "deploy:vercel": "bash scripts/deploy-vercel.sh",
+    "deploy:railway": "bash scripts/deploy-railway.sh",
     "deploy": "npm run deploy:contract && npm run deploy:vercel"
   },
   "dependencies": {
@@ -49,6 +55,7 @@
     "cmdk": "1.0.4",
     "cors": "latest",
     "crypto": "latest",
+    "concurrently": "^8.2.2",
     "date-fns": "^3.6.0",
     "dotenv": "^17.2.0",
     "embla-carousel-react": "8.5.1",
