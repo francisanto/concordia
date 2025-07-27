@@ -1,20 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Client } from '@bnb-chain/greenfield-js-sdk'
 
-const GREENFIELD_CONFIG = {
-  endpoint: process.env.GREENFIELD_ENDPOINT || "https://gnfd-testnet-sp1.bnbchain.org",
-  chainId: process.env.GREENFIELD_CHAIN_ID || 5600,
-  bucketName: process.env.GREENFIELD_BUCKET || "concordia-data",
-}
-
-let greenfieldClient: any = null
-
-async function initGreenfield() {
-  if (!greenfieldClient) {
-    greenfieldClient = Client.create(GREENFIELD_CONFIG.endpoint, String(GREENFIELD_CONFIG.chainId))
-  }
-  return greenfieldClient
-}
+// Simple in-memory storage for testing (will be replaced with Greenfield)
+let mockGroups: any[] = []
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,8 +9,8 @@ export async function POST(request: NextRequest) {
     if (!groupId || !groupData) {
       return NextResponse.json({ error: "Group ID and data are required" }, { status: 400 })
     }
-    const client = await initGreenfield()
-    const objectName = `groups/group_${groupId}.json`
+    
+    console.log('📤 POST /api/groups/store - Storing group:', groupId)
 
     // Add metadata fields if needed
     const metadata = {
@@ -33,21 +20,16 @@ export async function POST(request: NextRequest) {
       version: "1.0",
     }
 
-    // Store in Greenfield
-    const createObjectTx = await client.object.createObject({
-      bucketName: GREENFIELD_CONFIG.bucketName,
-      objectName: objectName,
-      creator: process.env.GREENFIELD_ACCOUNT_ADDRESS,
-      visibility: "VISIBILITY_TYPE_PUBLIC_READ",
-      contentType: "application/json",
-      redundancyType: "REDUNDANCY_EC_TYPE",
-      payload: Buffer.from(JSON.stringify(metadata)),
-    })
+    // Add to mock storage
+    mockGroups.push(metadata)
+    
+    console.log('✅ Group stored successfully:', groupId)
+    console.log('📊 Total groups in storage:', mockGroups.length)
 
     return NextResponse.json({
       success: true,
-      objectName,
-      transactionHash: createObjectTx.transactionHash,
+      objectName: `groups/group_${groupId}.json`,
+      transactionHash: `mock_${Date.now()}`,
       metadata,
     })
   } catch (error) {
