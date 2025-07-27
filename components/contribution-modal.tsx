@@ -279,22 +279,6 @@ async function updateContributionInGreenfield(groupId: string, contributionData:
   try {
     console.log("Updating contribution in BNB Greenfield:", { groupId, contributionData })
 
-    // Get existing group data
-    const storedReferences = JSON.parse(localStorage.getItem("greenfield_references") || "{}")
-    const reference = storedReferences[groupId]
-
-    if (reference) {
-      // Update contribution history
-      const contributionHistory = JSON.parse(localStorage.getItem(`contributions_${groupId}`) || "[]")
-      contributionHistory.push(contributionData)
-      localStorage.setItem(`contributions_${groupId}`, JSON.stringify(contributionHistory))
-
-      // Update reference timestamp
-      reference.lastUpdated = new Date().toISOString()
-      storedReferences[groupId] = reference
-      localStorage.setItem("greenfield_references", JSON.stringify(storedReferences))
-    }
-
     // Mock API delay
     await new Promise((resolve) => setTimeout(resolve, 1500))
 

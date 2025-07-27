@@ -305,17 +305,6 @@ async function findGroupByCode(code: string): Promise<string | null> {
       console.log("Backend API not available, trying localStorage...")
     }
     
-    // Fallback to localStorage search
-    const { dataPersistenceService } = await import('@/lib/data-persistence')
-    const allGroups = await dataPersistenceService.loadGroups()
-    
-    for (const group of allGroups) {
-      // Check if group has the code (stored in group metadata)
-      if (group.id && group.id.includes(code)) {
-        return group.id
-      }
-    }
-    
     // Fallback to direct localStorage check
     const storedGroups = JSON.parse(localStorage.getItem('concordia_groups') || '[]')
     for (const group of storedGroups) {
@@ -345,14 +334,6 @@ async function getGroupInfo(groupId: string): Promise<any | null> {
       }
     } catch (apiError) {
       console.log("Backend API not available, trying localStorage...")
-    }
-    
-    // Fallback to localStorage
-    const { dataPersistenceService } = await import('@/lib/data-persistence')
-    const group = await dataPersistenceService.getGroup(groupId)
-    
-    if (group) {
-      return group
     }
     
     // Fallback to direct localStorage check
