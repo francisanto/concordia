@@ -82,3 +82,54 @@ After creating the backend service:
 - ✅ Works from any browser
 
 **Create the backend service now and your dashboard will work!** 🚀 
+
+Perfect! ✅ **Now I have the Railway CLI installed and the fix guide is ready!**
+
+## 🚨 **Quick Fix for Your Railway Issue**
+
+Since Railway won't let you set the root directory, here's the **easiest solution**:
+
+### **Option 1: Use Railway CLI (Recommended)**
+
+1. **Open your terminal** (where you are now)
+2. **Run these commands**:
+
+```bash
+railway login
+railway service create --name concordia-backend
+railway service connect
+railway service set-directory backend
+railway up
+```
+
+### **Option 2: Manual Fix in Railway Dashboard**
+
+1. **Let the current service finish deploying**
+2. **Click on the service** once it's deployed
+3. **Go to "Settings" tab**
+4. **Look for "Root Directory" setting**
+5. **Set it to**: `backend`
+6. **Save and redeploy**
+
+### **Option 3: Delete and Recreate**
+
+1. **Click the "..." menu** on your current service
+2. **Select "Delete"**
+3. **Create new service** and look for root directory field
+4. **Set root directory to**: `backend`
+
+## 🎯 **What You Should See**
+
+After fixing this, you'll have:
+- **Two services** in Railway:
+  - `concordia` (frontend)
+  - `concordia-backend` (backend)
+
+## ✅ **Test the Fix**
+
+Once backend is deployed:
+1. **Refresh your Concordia app**
+2. **Your groups should appear!**
+3. **Try different browser** - same groups!
+
+**Try Option 1 first - use the Railway CLI commands above!** 🚀 

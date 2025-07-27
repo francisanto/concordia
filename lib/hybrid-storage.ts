@@ -200,7 +200,7 @@ class HybridStorageService {
       
       // First, try to load from backend API
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://concordia-backend-production.up.railway.app/api';
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || '/api';
         console.log("🌐 Attempting to load groups from backend API:", apiUrl);
         
         const response = await fetch(`${apiUrl}/groups`);
@@ -261,7 +261,7 @@ class HybridStorageService {
 
       // First, try to get from backend API
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://concordia-backend-production.up.railway.app/api';
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || '/api';
         console.log("🌐 Attempting to get group from backend API:", groupId);
         
         const response = await fetch(`${apiUrl}/groups/${groupId}`);
