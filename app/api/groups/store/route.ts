@@ -1,7 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Client } from '@bnb-chain/greenfield-js-sdk'
 
-// Simple in-memory storage for testing (will be replaced with Greenfield)
-let mockGroups: any[] = []
+const GREENFIELD_CONFIG = {
+  endpoint: process.env.GREENFIELD_ENDPOINT || "https://gnfd-testnet-sp1.bnbchain.org",
+  chainId: process.env.GREENFIELD_CHAIN_ID || 5600,
+  bucketName: process.env.GREENFIELD_BUCKET || "concordia-data",
+}
+
+let greenfieldClient: any = null
+
+async function initGreenfield() {
+  if (!greenfieldClient) {
+    try {
+      greenfieldClient = Client.create(GREENFIELD_CONFIG.endpoint, String(GREENFIELD_CONFIG.chainId))
+      console.log('✅ Greenfield client initialized')
+    } catch (error) {
+      console.error('❌ Failed to initialize Greenfield client:', error)
+      throw error
+    }
+  }
+  return greenfieldClient
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,7 +29,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Group ID and data are required" }, { status: 400 })
     }
     
-    console.log('📤 POST /api/groups/store - Storing group:', groupId)
+    console.log('📤 POST /api/groups/store - Storing group in BNB Greenfield:', groupId)
+
+    const client = await initGreenfield()
+    const objectName = `groups/group_${groupId}.json`
 
     // Add metadata fields if needed
     const metadata = {
@@ -20,20 +42,30 @@ export async function POST(request: NextRequest) {
       version: "1.0",
     }
 
-    // Add to mock storage
-    mockGroups.push(metadata)
+    console.log('💾 Storing group data in BNB Greenfield...')
+
+    // Store in BNB Greenfield
+    const createObjectTx = await client.object.createObject({
+      bucketName: GREENFIELD_CONFIG.bucketName,
+      objectName: objectName,
+      creator: process.env.GREENFIELD_ACCOUNT_ADDRESS || "0x0000000000000000000000000000000000000000",
+      visibility: "VISIBILITY_TYPE_PUBLIC_READ",
+      contentType: "application/json",
+      redundancyType: "REDUNDANCY_EC_TYPE",
+      payload: Buffer.from(JSON.stringify(metadata)),
+    })
     
-    console.log('✅ Group stored successfully:', groupId)
-    console.log('📊 Total groups in storage:', mockGroups.length)
+    console.log('✅ Group stored successfully in BNB Greenfield:', groupId)
+    console.log('🔗 Transaction hash:', createObjectTx.transactionHash)
 
     return NextResponse.json({
       success: true,
-      objectName: `groups/group_${groupId}.json`,
-      transactionHash: `mock_${Date.now()}`,
+      objectName: objectName,
+      transactionHash: createObjectTx.transactionHash,
       metadata,
     })
   } catch (error) {
-    console.error('❌ Error storing group data in Greenfield:', error)
+    console.error('❌ Error storing group data in BNB Greenfield:', error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
