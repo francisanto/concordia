@@ -198,6 +198,50 @@ class HybridStorageService {
     try {
       console.log("🔄 Loading groups with hybrid storage...");
       
+      // First, try to load from backend API
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://concordia-backend-production.up.railway.app/api';
+        console.log("🌐 Attempting to load groups from backend API:", apiUrl);
+        
+        const response = await fetch(`${apiUrl}/groups`);
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success && result.groups && result.groups.length > 0) {
+            console.log("✅ Loaded groups from backend API:", result.groups.length);
+            
+            // Convert backend format to GroupMetadata format
+            const convertedGroups: GroupMetadata[] = result.groups.map((group: any) => ({
+              id: group.groupId || group.id,
+              name: group.name || "Unnamed Group",
+              description: group.description || group.goal || "No description",
+              creator: group.creator || group.createdBy || "",
+              contributionAmount: group.contributionAmount || group.targetAmount || 0,
+              currentAmount: group.currentAmount || 0,
+              targetAmount: group.targetAmount || 0,
+              goal: group.description || group.goal || "No description",
+              duration: group.duration || "30",
+              endDate: group.endDate || group.withdrawalDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+              withdrawalDate: group.withdrawalDate || group.endDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+              isActive: group.isActive !== undefined ? group.isActive : true,
+              status: group.status || "active",
+              createdBy: group.creator || group.createdBy || "",
+              members: group.members || [],
+              nextContribution: group.nextContribution || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+              createdAt: group.createdAt || new Date().toISOString(),
+              updatedAt: group.updatedAt || new Date().toISOString(),
+              greenfieldBucketId: group.greenfieldBucketId || "",
+              greenfieldObjectKey: group.greenfieldObjectKey || "",
+              greenfieldDataHash: group.greenfieldDataHash || "",
+            }));
+            
+            return convertedGroups;
+          }
+        }
+      } catch (apiError) {
+        console.log("⚠️ Backend API not available, falling back to localStorage:", apiError);
+      }
+      
+      // Fallback to localStorage
       const metadata = this.loadMetadata();
       console.log("✅ Loaded metadata from local storage:", metadata.length);
       
@@ -215,6 +259,50 @@ class HybridStorageService {
     try {
       console.log("🔍 Getting group with hybrid storage:", groupId);
 
+      // First, try to get from backend API
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://concordia-backend-production.up.railway.app/api';
+        console.log("🌐 Attempting to get group from backend API:", groupId);
+        
+        const response = await fetch(`${apiUrl}/groups/${groupId}`);
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success && result.metadata) {
+            console.log("✅ Group retrieved from backend API");
+            
+            // Convert backend format to GroupMetadata format
+            const groupMetadata: GroupMetadata = {
+              id: result.metadata.groupId || result.metadata.id,
+              name: result.metadata.name || "Unnamed Group",
+              description: result.metadata.description || result.metadata.goal || "No description",
+              creator: result.metadata.creator || result.metadata.createdBy || "",
+              contributionAmount: result.metadata.contributionAmount || result.metadata.targetAmount || 0,
+              currentAmount: result.metadata.currentAmount || 0,
+              targetAmount: result.metadata.targetAmount || 0,
+              goal: result.metadata.description || result.metadata.goal || "No description",
+              duration: result.metadata.duration || "30",
+              endDate: result.metadata.endDate || result.metadata.withdrawalDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+              withdrawalDate: result.metadata.withdrawalDate || result.metadata.endDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+              isActive: result.metadata.isActive !== undefined ? result.metadata.isActive : true,
+              status: result.metadata.status || "active",
+              createdBy: result.metadata.creator || result.metadata.createdBy || "",
+              members: result.metadata.members || [],
+              nextContribution: result.metadata.nextContribution || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+              createdAt: result.metadata.createdAt || new Date().toISOString(),
+              updatedAt: result.metadata.updatedAt || new Date().toISOString(),
+              greenfieldBucketId: result.metadata.greenfieldBucketId || "",
+              greenfieldObjectKey: result.metadata.greenfieldObjectKey || "",
+              greenfieldDataHash: result.metadata.greenfieldDataHash || "",
+            };
+            
+            return { metadata: groupMetadata, fullData: result.metadata };
+          }
+        }
+      } catch (apiError) {
+        console.log("⚠️ Backend API not available, falling back to localStorage:", apiError);
+      }
+
+      // Fallback to localStorage
       const metadata = this.loadMetadata();
       const groupMetadata = metadata.find((g: GroupMetadata) => g.id === groupId);
       
