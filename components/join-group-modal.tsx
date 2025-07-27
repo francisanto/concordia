@@ -292,7 +292,20 @@ export function JoinGroupModal({
 // Helper functions
 async function findGroupByCode(code: string): Promise<string | null> {
   try {
-    // Search through localStorage for groups with matching codes
+    // First, try to find in backend API
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://concordia-backend-production.up.railway.app/api'}/groups/code/${code}`)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && data.groupId) {
+          return data.groupId
+        }
+      }
+    } catch (apiError) {
+      console.log("Backend API not available, trying localStorage...")
+    }
+    
+    // Fallback to localStorage search
     const { dataPersistenceService } = await import('@/lib/data-persistence')
     const allGroups = await dataPersistenceService.loadGroups()
     
@@ -321,7 +334,20 @@ async function findGroupByCode(code: string): Promise<string | null> {
 
 async function getGroupInfo(groupId: string): Promise<any | null> {
   try {
-    // Get from localStorage
+    // First, try to get from backend API
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://concordia-backend-production.up.railway.app/api'}/groups/${groupId}`)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && data.group) {
+          return data.group
+        }
+      }
+    } catch (apiError) {
+      console.log("Backend API not available, trying localStorage...")
+    }
+    
+    // Fallback to localStorage
     const { dataPersistenceService } = await import('@/lib/data-persistence')
     const group = await dataPersistenceService.getGroup(groupId)
     

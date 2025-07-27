@@ -100,6 +100,16 @@ function generateObjectId() {
   return crypto.randomBytes(16).toString("hex")
 }
 
+function generateInviteCode() {
+  // Generate a 6-character alphanumeric code
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+  let result = ''
+  for (let i = 0; i < 6; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return result
+}
+
 function sanitizeFileName(fileName) {
   return fileName.replace(/[^a-zA-Z0-9.-]/g, "_")
 }
@@ -201,6 +211,7 @@ app.post("/api/groups/store", async (req, res) => {
     const metadata = {
       groupId,
       ...groupData,
+      inviteCode: generateInviteCode(), // Generate invite code
       createdAt: new Date().toISOString(),
       objectId,
       version: "1.0",
@@ -333,6 +344,58 @@ app.get("/api/groups/:groupId", async (req, res) => {
 
     res.status(500).json({
       error: "Failed to retrieve group data",
+      details: error.message,
+    })
+  }
+})
+
+/**
+ * Find Group by Code
+ */
+app.get("/api/groups/code/:code", async (req, res) => {
+  try {
+    const { code } = req.params
+    
+    // List all objects in the groups folder
+    const listObjectsResponse = await greenfieldClient.object.listObjects({
+      bucketName: GREENFIELD_CONFIG.bucketName,
+      prefix: "groups/",
+      maxKeys: 1000,
+    })
+
+    if (!listObjectsResponse.objects || listObjectsResponse.objects.length === 0) {
+      return res.status(404).json({ error: "No groups found" })
+    }
+
+    // Search through all groups for the code
+    for (const object of listObjectsResponse.objects) {
+      try {
+        const objectData = await greenfieldClient.object.downloadFile({
+          bucketName: GREENFIELD_CONFIG.bucketName,
+          objectName: object.objectName,
+        })
+
+        const groupData = JSON.parse(objectData.toString())
+        
+        // Check if this group has the code
+        if (groupData.inviteCode === code || groupData.code === code) {
+          const groupId = groupData.id || groupData.groupId
+          return res.json({
+            success: true,
+            groupId,
+            group: groupData
+          })
+        }
+      } catch (error) {
+        console.error(`Error checking group ${object.objectName}:`, error)
+      }
+    }
+
+    res.status(404).json({ error: "Group not found with this code" })
+  } catch (error) {
+    console.error("❌ Error finding group by code:", error)
+    res.status(500).json({
+      error: "Failed to find group by code",
       details: error.message,
     })
   }
