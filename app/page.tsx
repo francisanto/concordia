@@ -439,55 +439,6 @@ export default function HomePage() {
     }
   }, [isConnected, address, userGroups])
 
-  // Function to join a group by invite code
-  const joinGroupByInviteCode = async (code: string) => {
-    if (!address) {
-      toast({
-        title: "❌ Wallet Not Connected",
-        description: "Please connect your wallet to join a group",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (!code) {
-      toast({
-        title: "❌ Missing Invite Code",
-        description: "Please enter a valid invite code",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    try {
-      const response = await fetch(`/api/groups/join?invite_code=${code}&address=${address}`);
-      const data = await response.json();
-
-      if (data.success) {
-        toast({
-          title: "✅ Success",
-          description: `You've joined the group: ${data.group.name}`,
-        });
-        
-        // Refresh the user's groups
-        loadGroups();
-      } else {
-        toast({
-          title: "❌ Failed to Join Group",
-          description: data.error || "Invalid invite code or you're already a member",
-          variant: "destructive"
-        });
-      }
-    } catch (error) {
-      console.error("Error joining group:", error);
-      toast({
-        title: "❌ Error",
-        description: "Could not join the group. Please try again.",
-        variant: "destructive"
-      });
-    }
-  };
-
   // Function to verify admin access
   const verifyAdminAccess = async () => {
     if (!adminApiKey) {
@@ -1188,24 +1139,6 @@ export default function HomePage() {
                   <Users className="h-5 w-5 mr-2 text-concordia-pink" />
                   Join Existing Group
                 </h3>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Enter invite code"
-                    value={inviteCode}
-                    onChange={(e) => setInviteCode(e.target.value)}
-                    className="bg-concordia-dark-blue border-concordia-light-purple/30 text-white"
-                  />
-                  <Button 
-                    onClick={() => joinGroupByInviteCode(inviteCode)}
-                    disabled={!address || !inviteCode}
-                    className="bg-concordia-pink hover:bg-concordia-pink/80 text-white"
-                  >
-                    Join Group
-                  </Button>
-                </div>
-                <p className="text-white/70 text-sm mt-2">
-                  Ask your friends for their group invite code to join their savings group.
-                </p>
               </div>
               <div className="mb-6">
                 <Card className="bg-concordia-dark-blue/80 border-concordia-light-purple/30 backdrop-blur-sm">
