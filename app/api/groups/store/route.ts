@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Client } from '@bnb-chain/greenfield-js-sdk'
+import { prisma } from '@/lib/prisma'
 
 const GREENFIELD_CONFIG = {
   endpoint: process.env.GREENFIELD_ENDPOINT || "https://gnfd-testnet-sp1.bnbchain.org",
@@ -57,6 +58,49 @@ export async function POST(request: NextRequest) {
     
     console.log('✅ Group stored successfully in BNB Greenfield:', groupId)
     console.log('🔗 Transaction hash:', createObjectTx.transactionHash)
+
+    // Save user data to database for admin tracking
+    try {
+      console.log('💾 Saving user data to database for admin tracking...')
+      
+      const creatorAddress = groupData.creator || groupData.createdBy
+      if (creatorAddress) {
+        // Create or update user in database
+        await prisma.user.upsert({
+          where: { walletAddress: creatorAddress },
+          update: {
+            totalAuraPoints: { increment: 10 }, // Give 10 aura points for creating a group
+            totalContributed: { increment: groupData.currentAmount || 0 },
+            updatedAt: new Date()
+          },
+          create: {
+            walletAddress: creatorAddress,
+            nickname: groupData.creatorNickname || 'Creator',
+            totalAuraPoints: 10,
+            totalContributed: groupData.currentAmount || 0
+          }
+        })
+
+        // Log admin action
+        await prisma.adminLog.create({
+          data: {
+            action: 'GROUP_CREATED',
+            details: {
+              groupId,
+              creator: creatorAddress,
+              groupName: groupData.name,
+              amount: groupData.currentAmount
+            },
+            adminAddress: creatorAddress
+          }
+        })
+
+        console.log('✅ User data saved to database')
+      }
+    } catch (dbError) {
+      console.warn('⚠️ Database save failed (non-critical):', dbError)
+      // Continue even if database save fails - Greenfield storage is the primary
+    }
 
     return NextResponse.json({
       success: true,
