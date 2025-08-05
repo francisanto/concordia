@@ -17,6 +17,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { SparkleBackground } from "@/components/sparkle-background"
 import { AuraRewards } from "@/components/aura-rewards"
 import { NFTWalletDisplay } from "@/components/nft-wallet-display"
+import { AdminDashboard } from "@/components/admin-dashboard"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 
@@ -181,6 +182,9 @@ export default function HomePage() {
   const { toast } = useToast()
   const { disconnect } = useDisconnect();
   const [autoRedirectDone, setAutoRedirectDone] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [adminApiKey, setAdminApiKey] = useState("")
+  const [inviteCode, setInviteCode] = useState("")
 
   // Move handleDisconnect inside HomePage
   const handleDisconnect = () => {
@@ -232,29 +236,21 @@ export default function HomePage() {
       try {
         console.log("🔄 Loading groups for wallet:", address);
         
-        // Load all groups from API route (Greenfield)
-        const response = await fetch('/api/groups');
-        const result = await response.json();
-        
-        if (!result.success) {
-          throw new Error(result.error || "Failed to load groups from API");
-        }
-        
-        const allGroups = result.groups || [];
+        // Use the hybrid storage service to load groups with access control
+        const { hybridStorageService } = await import('@/lib/hybrid-storage');
+        const allGroups = await hybridStorageService.loadGroups(address);
         console.log("📊 All groups from Greenfield:", allGroups.length);
-   
-        // Filter groups where the current user is either creator or member
-        const userGroups = allGroups.filter((group: any) => {
-          const isCreator = group.creator?.toLowerCase() === address.toLowerCase();
-          const isMember = group.members?.some((member: any) => 
-            member.address?.toLowerCase() === address.toLowerCase()
-          );
-          return isCreator || isMember;
+        
+        // Groups are already filtered by the API based on user access
+        console.log("👤 User's groups found:", allGroups.length);
+        
+        // Show toast notification about cross-device access
+        toast({
+          title: "✅ Data Synced",
+          description: "Your groups are securely stored on blockchain and accessible from any device",
         });
 
-        console.log("👤 User's groups found:", userGroups.length);
-
-        const formattedGroups: SavingsGroup[] = userGroups.map((group: any) => ({
+        const formattedGroups: SavingsGroup[] = allGroups.map((group: any) => ({
           id: group.id,
           name: group.name || "Unnamed Group",
           goal: group.description || group.goal || "No description",
@@ -306,55 +302,52 @@ export default function HomePage() {
     loadGroups();
   }, [isConnected, address, toast]);
 
-  // Save groups using API route
+  // Save groups using hybrid storage service
   const saveGroup = async (groupData: any) => {
     try {
-      console.log("💾 Saving group via API route:", groupData);
+      console.log("💾 Saving group via hybrid storage service:", groupData);
       
-      // Call the API route to store in Greenfield
-      const response = await fetch('/api/groups/store', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          groupId: groupData.id,
-          groupData: {
-            id: groupData.id,
-            name: groupData.name,
-            description: groupData.description,
-            creator: groupData.creator,
-            contributionAmount: groupData.targetAmount,
-            currentAmount: groupData.currentAmount,
-            targetAmount: groupData.targetAmount,
-            goal: groupData.description,
-            duration: groupData.duration,
-            endDate: groupData.withdrawalDate,
-            withdrawalDate: groupData.withdrawalDate,
-            isActive: true,
+      if (!address) {
+        throw new Error("Wallet not connected");
+      }
+      
+      // Prepare the group data
+      const preparedGroupData = {
+        id: groupData.id,
+        name: groupData.name,
+        description: groupData.description,
+        creator: address,
+        contributionAmount: groupData.targetAmount,
+        currentAmount: groupData.currentAmount,
+        targetAmount: groupData.targetAmount,
+        goal: groupData.description,
+        duration: groupData.duration,
+        endDate: groupData.withdrawalDate,
+        withdrawalDate: groupData.withdrawalDate,
+        isActive: true,
+        status: "active",
+        createdBy: address,
+        members: [
+          {
+            address: address,
+            nickname: "Creator",
+            contributed: groupData.currentAmount,
+            auraPoints: 10,
             status: "active",
-            createdBy: groupData.creator,
-            members: [
-              {
-                address: groupData.creator,
-                nickname: "Creator",
-                contributed: groupData.currentAmount,
-                auraPoints: 10,
-                status: "active",
-                role: "creator",
-                joinedAt: new Date().toISOString()
-              }
-            ],
-            nextContribution: groupData.nextContribution,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
+            role: "creator",
+            joinedAt: new Date().toISOString()
           }
-        }),
-      });
-
-      const result = await response.json();
+        ],
+        nextContribution: groupData.nextContribution,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
       
-      if (result.success) {
+      // Use the hybrid storage service to save the group
+      const { hybridStorageService } = await import('@/lib/hybrid-storage');
+      const success = await hybridStorageService.saveGroup(preparedGroupData, address);
+      
+      if (success) {
         console.log("✅ Group saved to Greenfield successfully");
         
         // Add the new group to the current list immediately
@@ -369,7 +362,7 @@ export default function HomePage() {
           endDate: groupData.withdrawalDate,
           members: [
             {
-              address: groupData.creator,
+              address: address,
               nickname: "Creator",
               contributed: groupData.currentAmount,
               auraPoints: 10,
@@ -378,7 +371,7 @@ export default function HomePage() {
           ],
           status: "active",
           nextContribution: groupData.nextContribution,
-          createdBy: groupData.creator,
+          createdBy: address,
           createdAt: new Date().toISOString(),
           isActive: true
         };
@@ -392,7 +385,7 @@ export default function HomePage() {
           duration: 3000,
         });
       } else {
-        throw new Error(result.error || "Failed to save to Greenfield");
+        throw new Error("Failed to save to Greenfield");
       }
       
     } catch (error) {
@@ -446,21 +439,197 @@ export default function HomePage() {
     }
   }, [isConnected, address, userGroups])
 
-  // Auto-switch to dashboard when wallet connects
+  // Function to join a group by invite code
+  const joinGroupByInviteCode = async (code: string) => {
+    if (!address) {
+      toast({
+        title: "❌ Wallet Not Connected",
+        description: "Please connect your wallet to join a group",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!code) {
+      toast({
+        title: "❌ Missing Invite Code",
+        description: "Please enter a valid invite code",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/groups/join?invite_code=${code}&address=${address}`);
+      const data = await response.json();
+
+      if (data.success) {
+        toast({
+          title: "✅ Success",
+          description: `You've joined the group: ${data.group.name}`,
+        });
+        
+        // Refresh the user's groups
+        loadGroups();
+      } else {
+        toast({
+          title: "❌ Failed to Join Group",
+          description: data.error || "Invalid invite code or you're already a member",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error joining group:", error);
+      toast({
+        title: "❌ Error",
+        description: "Could not join the group. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Function to verify admin access
+  const verifyAdminAccess = async () => {
+    if (!adminApiKey) {
+      toast({
+        title: "❌ API Key Required",
+        description: "Please enter an admin API key",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/admin/groups?admin_key=${adminApiKey}`);
+      
+      if (response.ok) {
+        setIsAdmin(true);
+        toast({
+          title: "✅ Admin Access Granted",
+          description: "You now have access to all group data",
+        });
+      } else {
+        toast({
+          title: "❌ Access Denied",
+          description: "Invalid admin API key",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error verifying admin access:", error);
+      toast({
+        title: "❌ Verification Error",
+        description: "Could not verify admin access",
+        variant: "destructive"
+      });
+    }
+  }
+  
+  // Function to join a group by invite code
+  const joinGroupByInviteCode = async (inviteCode: string) => {
+    if (!isConnected || !address) {
+      toast({
+        title: "❌ Wallet Not Connected",
+        description: "Please connect your wallet to join a group",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!inviteCode) {
+      toast({
+        title: "❌ Invite Code Required",
+        description: "Please enter a valid invite code",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/groups/join?invite_code=${inviteCode}&address=${address}`);
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        toast({
+          title: "✅ Group Joined",
+          description: `You've successfully joined ${data.group.name}`,
+        });
+        
+        // Refresh groups to include the newly joined group
+        const { hybridStorageService } = await import('@/lib/hybrid-storage');
+        const allGroups = await hybridStorageService.loadGroups(address);
+        
+        const formattedGroups: SavingsGroup[] = allGroups.map((group: any) => ({
+          id: group.id,
+          name: group.name || "Unnamed Group",
+          goal: group.description || group.goal || "No description",
+          targetAmount: group.targetAmount || 0,
+          currentAmount: group.currentAmount || 0,
+          contributionAmount: group.contributionAmount || 0,
+          duration: group.duration || "unknown",
+          endDate: group.endDate || "unknown",
+          members: group.members || [],
+          status: group.status || "active",
+          nextContribution: group.nextContribution || "unknown",
+          createdBy: group.createdBy || "unknown",
+          isActive: group.isActive !== false,
+        }));
+        
+        setUserGroups(formattedGroups);
+        setActiveTab("dashboard");
+      } else {
+        toast({
+          title: "❌ Failed to Join Group",
+          description: data.error || "Invalid invite code or you're already a member",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error joining group:", error);
+      toast({
+        title: "❌ Error",
+        description: "Could not join the group. Please try again.",
+        variant: "destructive"
+      });
+    }
+  }
+  
+  // Auto-switch to create group page when wallet connects
   useEffect(() => {
     // Only redirect if connected AND auto-redirect hasn't happened yet
     if (isConnected && !autoRedirectDone && address) {
+      // Check if the connected address is the admin address
+      const checkIfAdmin = async () => {
+        try {
+          const response = await fetch(`/api/admin/groups?check_admin=true&address=${address}`);
+          const data = await response.json();
+          
+          if (data.isAdmin) {
+            console.log("👑 Admin wallet detected");
+            setIsAdmin(true);
+            // Set admin API key from response if available
+            if (data.adminApiKey) {
+              setAdminApiKey(data.adminApiKey);
+            }
+          }
+        } catch (error) {
+          console.error("❌ Error checking admin status:", error);
+        }
+      };
+      
+      checkIfAdmin();
+      
       // If currently on the home tab, perform the redirect
       if (activeTab === "home") {
         setTimeout(() => {
-          setActiveTab("dashboard")
+          setActiveTab("create") // Direct to create group instead of dashboard
           setAutoRedirectDone(true) // Mark redirect as done
-          console.log("🔄 Auto-redirecting to dashboard after wallet connection");
+          console.log("🔄 Auto-redirecting to create group page after wallet connection");
           
           // Show welcome message
           toast({
             title: "🔗 Wallet Connected",
-            description: "Welcome back! Your dashboard is loading from BNB Greenfield...",
+            description: "Welcome! Create a new group or join an existing one.",
             duration: 3000,
           });
         }, 1500) // Increased delay to allow data loading
@@ -470,6 +639,8 @@ export default function HomePage() {
     if (!isConnected && activeTab !== "home") {
       setActiveTab("home")
       setAutoRedirectDone(false)
+      setIsAdmin(false)
+      setAdminApiKey("")
       console.log("🔌 Wallet disconnected, redirected to home page");
     }
   }, [isConnected, activeTab, autoRedirectDone, address, toast])
@@ -839,6 +1010,17 @@ export default function HomePage() {
               >
                 {"My NFTs"}
               </button>
+              <button
+                onClick={() => setActiveTab("admin")}
+                className={
+                  "font-medium transition-colors " +
+                  (activeTab === "admin" ? "text-concordia-pink" : "text-white/80 hover:text-concordia-pink")
+                }
+                disabled={!isConnected}
+                style={!isConnected ? { opacity: 0.5, pointerEvents: "none" } : {}}
+              >
+                {"Admin"}
+              </button>
             </ClientOnly>
           </div>
 
@@ -991,6 +1173,70 @@ export default function HomePage() {
 
           <TabsContent value="dashboard">
             <ClientOnly>
+              <div className="mb-4 p-4 bg-concordia-purple/30 border border-concordia-light-purple/30 rounded-lg">
+                <p className="text-white flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-concordia-pink" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Your groups are securely stored on the blockchain and can be accessed from any device by connecting the same wallet.
+                </p>
+              </div>
+              
+              {/* Join Group by Invite Code */}
+              <div className="mb-4 p-4 bg-concordia-dark-purple/50 border border-concordia-light-purple/30 rounded-lg">
+                <h3 className="text-white font-semibold mb-3 flex items-center">
+                  <Users className="h-5 w-5 mr-2 text-concordia-pink" />
+                  Join Existing Group
+                </h3>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Enter invite code"
+                    value={inviteCode}
+                    onChange={(e) => setInviteCode(e.target.value)}
+                    className="bg-concordia-dark-blue border-concordia-light-purple/30 text-white"
+                  />
+                  <Button 
+                    onClick={() => joinGroupByInviteCode(inviteCode)}
+                    disabled={!address || !inviteCode}
+                    className="bg-concordia-pink hover:bg-concordia-pink/80 text-white"
+                  >
+                    Join Group
+                  </Button>
+                </div>
+                <p className="text-white/70 text-sm mt-2">
+                  Ask your friends for their group invite code to join their savings group.
+                </p>
+              </div>
+              <div className="mb-6">
+                <Card className="bg-concordia-dark-blue/80 border-concordia-light-purple/30 backdrop-blur-sm">
+                  <CardHeader>
+                    <CardTitle className="text-white text-xl flex items-center">
+                      <Users className="h-5 w-5 text-concordia-pink mr-2" />
+                      Join Existing Group
+                    </CardTitle>
+                    <CardDescription className="text-white/70">
+                      Enter an invite code to join a friend's savings group
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex space-x-2">
+                      <Input 
+                        placeholder="Enter invite code (e.g. ABC123)" 
+                        className="bg-concordia-purple/20 border-concordia-light-purple/30 text-white"
+                        value={inviteCode}
+                        onChange={(e) => setInviteCode(e.target.value)}
+                      />
+                      <Button 
+                        onClick={() => joinGroupByInviteCode(inviteCode)}
+                        className="bg-concordia-pink hover:bg-concordia-pink/80"
+                        disabled={!inviteCode || !isConnected}
+                      >
+                        Join Group
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
               <GroupDashboard
                 groups={userGroups}
                 onDeleteGroup={handleDeleteGroup}
@@ -1023,6 +1269,14 @@ export default function HomePage() {
                   <p className="text-white/80 text-lg">
                     {"Set your contribution amount and duration to start saving with friends"}
                   </p>
+                  <div className="mt-4 p-4 bg-concordia-purple/30 border border-concordia-light-purple/30 rounded-lg">
+                    <p className="text-white flex items-center justify-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-concordia-pink" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Your groups are securely stored on the blockchain and can be accessed from any device by connecting the same wallet.
+                    </p>
+                  </div>
                 </div>
 
                 <Card className="bg-concordia-dark-blue/80 border-concordia-light-purple/30 backdrop-blur-sm">
@@ -1192,6 +1446,56 @@ export default function HomePage() {
           <TabsContent value="nfts">
             <ClientOnly>
               <NFTWalletDisplay />
+            </ClientOnly>
+          </TabsContent>
+
+          <TabsContent value="admin">
+            <ClientOnly>
+              <div className="py-8">
+                <h2 className="text-3xl font-bold text-white mb-8 flex items-center">
+                  <Shield className="mr-2 h-6 w-6 text-concordia-pink" />
+                  Admin Dashboard
+                </h2>
+                
+                {/* Check if user is admin based on address */}
+                <div className="mb-6">
+                  <Card className="bg-concordia-purple/20 border-concordia-light-purple/30">
+                    <CardContent className="p-6">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                          <h3 className="text-xl font-semibold text-white mb-2">Admin Access</h3>
+                          <p className="text-white/70">
+                            Enter your admin API key to access all group data stored in BNB Greenfield
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="password"
+                            placeholder="Enter admin API key"
+                            value={adminApiKey}
+                            onChange={(e) => setAdminApiKey(e.target.value)}
+                            className="bg-concordia-dark-blue border-concordia-light-purple/50 text-white w-64"
+                          />
+                          <Button
+                            onClick={() => verifyAdminAccess()}
+                            className="bg-concordia-pink hover:bg-concordia-pink/80"
+                            disabled={!adminApiKey}
+                          >
+                            Verify
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+                
+                {/* Admin Dashboard Component */}
+                <AdminDashboard 
+                  isAdmin={isAdmin} 
+                  adminApiKey={adminApiKey} 
+                  onVerify={verifyAdminAccess}
+                />
+              </div>
             </ClientOnly>
           </TabsContent>
         </Tabs>

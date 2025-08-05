@@ -100,10 +100,29 @@ export function GroupDetailsModal({ group, isOpen, onClose }: GroupDetailsModalP
 
           {/* Members */}
           <div>
-            <h3 className="text-white font-semibold text-xl mb-3 flex items-center">
-              <Users className="h-5 w-5 mr-2 text-concordia-pink" />
-              Members ({group.members.length})
-            </h3>
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-white font-semibold text-xl flex items-center">
+                <Users className="h-5 w-5 mr-2 text-concordia-pink" />
+                Members ({group.members.length})
+              </h3>
+              {group.inviteCode && (
+                <div className="flex items-center bg-concordia-purple/30 px-3 py-1 rounded-md">
+                  <span className="text-white/90 text-sm mr-2">Invite Code: <span className="font-mono font-bold">{group.inviteCode}</span></span>
+                  <button
+                     onClick={() => {
+                       navigator.clipboard.writeText(group.inviteCode);
+                       toast({
+                         title: "✅ Copied",
+                         description: "Invite code copied to clipboard",
+                       });
+                     }}
+                     className="h-7 w-7 p-0 bg-transparent hover:bg-concordia-light-purple/20 rounded-full flex items-center justify-center"
+                   >
+                     <Copy className="h-3.5 w-3.5 text-white/70" />
+                   </button>
+                </div>
+              )}
+            </div>
             <div className="space-y-2">
               {group.members.map((member, index) => (
                 <div
