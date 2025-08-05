@@ -32,6 +32,7 @@ const GREENFIELD_CONFIG = {
   endpoint: process.env.GREENFIELD_ENDPOINT || "https://gnfd-testnet-sp1.bnbchain.org",
   chainId: process.env.GREENFIELD_CHAIN_ID || 5600,
   bucketName: process.env.GREENFIELD_BUCKET || "concordia-data",
+  adminAddress: process.env.ADMIN_ADDRESS || "0x0000000000000000000000000000000000000000", // Admin wallet address for access control
 }
 
 // Initialize Greenfield Client

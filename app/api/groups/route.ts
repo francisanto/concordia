@@ -22,11 +22,18 @@ async function initGreenfield() {
   return greenfieldClient
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     console.log('📥 GET /api/groups - Fetching groups from BNB Greenfield')
     
     const client = await initGreenfield()
+    
+    // Get user address from request headers or query parameters
+    const url = new URL(request.url)
+    const userAddress = url.searchParams.get('address')?.toLowerCase()
+    const isAdmin = url.searchParams.get('admin_key') === process.env.ADMIN_API_KEY
+    
+    console.log('👤 Request from user:', userAddress, 'Admin access:', isAdmin)
     
     // List all objects in the groups folder
     const listObjectsResponse = await client.object.listObjects({
@@ -64,9 +71,30 @@ export async function GET() {
 
     console.log('✅ Successfully loaded groups from BNB Greenfield:', groups.length)
     
+    // Filter groups based on user access
+    let accessibleGroups = groups
+    
+    if (!isAdmin && userAddress) {
+      // Regular users can only see groups they are part of
+      accessibleGroups = groups.filter((group: any) => {
+        const isCreator = group.creator?.toLowerCase() === userAddress
+        const isMember = group.members?.some((member: any) => 
+          member.address?.toLowerCase() === userAddress
+        )
+        return isCreator || isMember
+      })
+      console.log('🔒 Filtered groups for user access:', accessibleGroups.length)
+    } else if (isAdmin) {
+      console.log('👑 Admin access granted - returning all groups')
+    } else {
+      // If no user address and not admin, return empty array
+      console.log('⚠️ No user address or admin key provided - returning empty array')
+      accessibleGroups = []
+    }
+    
     return NextResponse.json({
       success: true,
-      groups,
+      groups: accessibleGroups,
     })
   } catch (error) {
     console.error("❌ Error retrieving groups from BNB Greenfield:", error instanceof Error ? error.message : error)
@@ -134,4 +162,4 @@ export async function POST(request: Request) {
       details: error instanceof Error ? error.message : 'Unknown error',
     }, { status: 500 })
   }
-} 
+}
