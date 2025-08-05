@@ -3,7 +3,7 @@
 const { ethers } = require('ethers');
 
 // Contract details
-const CONTRACT_ADDRESS = "0x58ae7520F81DC3464574960B792D43A82BF0C3f1";
+const CONTRACT_ADDRESS = "0x76a9C6d5EE759b0b5Ef4c7D9963523d247cBeF88";
 const RPC_URL = "https://opbnb-testnet-rpc.bnbchain.org";
 
 // Basic ABI for checking contract

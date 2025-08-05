@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Loader2, CheckCircle, AlertCircle, ExternalLink, Database, Shield } from "lucide-react"
 import { greenfieldService, type GroupMetadata } from "@/lib/greenfield-service"
 
-// Updated Concordia Smart Contract ABI
+// Updated Concordia Smart Contract ABI - matches your actual contract
 export const CONCORDIA_CONTRACT_ABI = [
   {
     inputs: [
@@ -68,6 +68,139 @@ export const CONCORDIA_CONTRACT_ABI = [
     stateMutability: "nonpayable",
     type: "function",
   },
+  {
+    inputs: [
+      { name: "groupId", type: "uint256" },
+      { name: "metadataHash", type: "string" },
+    ],
+    name: "updateGroupMetadata",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "groupId", type: "uint256" }],
+    name: "getGroupDetails",
+    outputs: [
+      {
+        components: [
+          { name: "id", type: "uint256" },
+          { name: "name", type: "string" },
+          { name: "description", type: "string" },
+          { name: "goalAmount", type: "uint256" },
+          { name: "dueDay", type: "uint256" },
+          { name: "duration", type: "uint256" },
+          { name: "withdrawalDate", type: "uint256" },
+          { name: "creator", type: "address" },
+          { name: "isActive", type: "bool" },
+          { name: "greenfieldObjectId", type: "string" },
+          { name: "greenfieldMetadataHash", type: "string" },
+          { name: "createdAt", type: "uint256" },
+          { name: "totalContributions", type: "uint256" },
+          { name: "memberCount", type: "uint256" },
+        ],
+        name: "",
+        type: "tuple",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "groupId", type: "uint256" },
+      { name: "user", type: "address" },
+    ],
+    name: "getMemberDetails",
+    outputs: [
+      {
+        components: [
+          { name: "isMember", type: "bool" },
+          { name: "contribution", type: "uint256" },
+          { name: "auraPoints", type: "uint256" },
+          { name: "hasVoted", type: "bool" },
+          { name: "joinedAt", type: "uint256" },
+          { name: "nickname", type: "string" },
+        ],
+        name: "",
+        type: "tuple",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "groupId", type: "uint256" }],
+    name: "getMembers",
+    outputs: [{ name: "", type: "address[]" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "groupId", type: "uint256" }],
+    name: "getGroupContributions",
+    outputs: [
+      {
+        components: [
+          { name: "contributor", type: "address" },
+          { name: "amount", type: "uint256" },
+          { name: "timestamp", type: "uint256" },
+          { name: "auraPoints", type: "uint256" },
+          { name: "isEarly", type: "bool" },
+          { name: "transactionHash", type: "string" },
+        ],
+        name: "",
+        type: "tuple[]",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "groupId", type: "uint256" }],
+    name: "getGroupMetadataHash",
+    outputs: [{ name: "", type: "string" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "groupId", type: "uint256" }],
+    name: "getGroupBalance",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "contractBalance",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "getTotalGroups",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "groupId", type: "uint256" },
+      { name: "user", type: "address" },
+    ],
+    name: "isGroupMember",
+    outputs: [{ name: "", type: "bool" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "withdrawStuckFunds",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
   // Events
   {
     anonymous: false,
@@ -101,7 +234,7 @@ export const CONCORDIA_CONTRACT_ABI = [
 ] as const
 
 // Replace with your actual deployed contract address
-const CONCORDIA_CONTRACT_ADDRESS = (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "0x58ae7520F81DC3464574960B792D43A82BF0C3f1") as `0x${string}`;
+const CONCORDIA_CONTRACT_ADDRESS = (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "0x76a9C6d5EE759b0b5Ef4c7D9963523d247cBeF88") as `0x${string}`;
 
 
 interface SmartContractIntegrationProps {
@@ -279,6 +412,15 @@ export function SmartContractIntegration({
       }
 
       console.log("📝 Writing contract with address:", CONCORDIA_CONTRACT_ADDRESS)
+      console.log("📋 Transaction parameters:")
+      console.log("- Team Name:", teamName || "Unnamed Group")
+      console.log("- Description:", groupDescription || "No description")
+      console.log("- Amount:", parsedAmount.toString())
+      console.log("- Duration:", durationSeconds)
+      console.log("- Withdrawal Date:", Math.floor(finalDate))
+      console.log("- Due Day:", Number(dueDay ? Number.parseInt(dueDay) : 1))
+      console.log("- Object ID:", storeResult.objectId || tempObjectId)
+      console.log("- Metadata Hash:", metadataHash)
       
       writeContract({
         address: CONCORDIA_CONTRACT_ADDRESS as `0x${string}`,
