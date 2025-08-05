@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma'
 const GREENFIELD_CONFIG = {
   endpoint: process.env.GREENFIELD_ENDPOINT || "https://gnfd-testnet-sp1.bnbchain.org",
   chainId: process.env.GREENFIELD_CHAIN_ID || 5600,
-  bucketName: process.env.GREENFIELD_BUCKET || "0x000000000000000000000000000000000000000000000000000000000000566f",
+  bucketName: process.env.GREENFIELD_BUCKET || "concordia-data",
 }
 
 let greenfieldClient: any = null
