@@ -612,26 +612,26 @@ export default function HomePage() {
   useEffect(() => {
     if (isConnected && !autoRedirectDone && address) {
       // If currently on the home tab, perform the redirect
-      if (activeTab === "home") {
-        setTimeout(() => {
-          // Check if the user has existing groups
-          if (userGroups.length > 0) {
-            setActiveTab("dashboard");
-            console.log("🔄 Auto-redirecting to dashboard - user has existing groups");
-          } else {
-            setActiveTab("options"); // Show group options if no groups exist
-            console.log("🔄 Auto-redirecting to group options - new user");
-          }
-          setAutoRedirectDone(true); // Mark redirect as done
+        if (activeTab === "home") {
+          setTimeout(() => {
+            // Check if the user has existing groups
+            if (userGroups.length > 0) {
+              setActiveTab("dashboard");
+              console.log("🔄 Auto-redirecting to dashboard - user has existing groups");
+            } else {
+              setActiveTab("create"); // Show create group if no groups exist
+              console.log("🔄 Auto-redirecting to create group - new user");
+            }
+            setAutoRedirectDone(true); // Mark redirect as done
 
-          // Show welcome message
-          toast({
-            title: "🔗 Wallet Connected",
-            description: userGroups.length > 0 ? "Welcome back! Your groups are loaded." : "Welcome! Choose to create or join a group.",
-            duration: 3000,
-          });
-        }, 1500); // Delay to allow data loading
-      }
+            // Show welcome message
+            toast({
+              title: "🔗 Wallet Connected",
+              description: userGroups.length > 0 ? "Welcome back! Your groups are loaded." : "Welcome! Create your first savings group.",
+              duration: 3000,
+            });
+          }, 1500); // Delay to allow data loading
+        }
     }
     // If disconnected, redirect to home and reset flags
     if (!isConnected && activeTab !== "home") {
@@ -736,7 +736,7 @@ export default function HomePage() {
 
     // Calculate next contribution date based on due day
     const nextContributionDate = dueDay
-      ? new Date(new Date().getFullYear(), new Date().getMonth() + 1, Number.parseInt(dueDay))
+      ? new Date(new Date().getMonth() + 1, Number.parseInt(dueDay))
           .toISOString()
           .split("T")[0]
       : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
@@ -1011,17 +1011,7 @@ export default function HomePage() {
               {"Home"}
             </button>
             <ClientOnly>
-              <button
-                onClick={() => setActiveTab("options")}
-                className={
-                  "font-medium transition-colors " +
-                  (activeTab === "options" ? "text-concordia-pink" : "text-white/80 hover:text-concordia-pink")
-                }
-                disabled={!isConnected}
-                style={!isConnected ? { opacity: 0.5, pointerEvents: "none" } : {}}
-              >
-                {"Group Options"}
-              </button>
+              
               <button
                 onClick={() => setActiveTab("dashboard")}
                 className={

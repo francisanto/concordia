@@ -254,9 +254,27 @@ export function GroupDashboard({
                 <p className="text-white/70 mb-6">
                   You haven't created or joined any savings groups yet. Start one to achieve your goals!
                 </p>
-                <p className="text-white/60">
-                  Use the "Create Group" button above to get started with your first savings group.
-                </p>
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                  <Button
+                    size="lg"
+                    onClick={() => {
+                      window.dispatchEvent(new CustomEvent("navigateToCreate"))
+                    }}
+                    className="bg-gradient-to-r from-concordia-pink to-concordia-light-purple hover:from-concordia-pink/80 hover:to-concordia-light-purple/80 text-white font-semibold shadow-lg"
+                  >
+                    <Plus className="h-5 w-5 mr-2" />
+                    Create Your First Group
+                  </Button>
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    onClick={() => setJoinGroupModalOpen(true)}
+                    className="border-concordia-light-purple text-concordia-light-purple hover:bg-concordia-light-purple/10 bg-transparent font-semibold"
+                  >
+                    <Users className="h-5 w-5 mr-2" />
+                    Join Existing Group
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ) : (
