@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Users, Lock, Trophy, Target, ArrowRight, Shield, Coins, Wallet, ChevronDown } from "lucide-react"
+import { Users, Lock, Trophy, Target, ArrowRight, Shield, Coins, Wallet, ChevronDown, Plus } from "lucide-react"
 import { useAccount, useConnect, useDisconnect, useSwitchChain } from "wagmi"
 import { opBNBTestnet } from "wagmi/chains"
 import { GroupDashboard, type SavingsGroup } from "@/components/group-dashboard"
@@ -188,6 +188,10 @@ export default function HomePage() {
   const [adminApiKey, setAdminApiKey] = useState("")
   const [inviteCode, setInviteCode] = useState("")
   const [joinGroupModalOpen, setJoinGroupModalOpen] = useState(false)
+  const [showCreateModal, setShowCreateModal] = useState(false) // State for create group modal
+  const [showJoinModal, setShowJoinModal] = useState(false) // State for join group modal
+  const [isJoining, setIsJoining] = useState(false) // State to track if joining process is active
+
 
   // Define admin wallet from environment variables or default
   const ADMIN_WALLET = process.env.NEXT_PUBLIC_ADMIN_WALLET?.toLowerCase() || "0xdA13e8f82C83d14E7aa639354054B7f914cA0998"
@@ -889,6 +893,8 @@ export default function HomePage() {
       return;
     }
 
+    setIsJoining(true) // Set joining state
+
     try {
       const response = await fetch(`/api/groups/join?invite_code=${inviteCode}&address=${address}`);
       const data = await response.json();
@@ -927,6 +933,8 @@ export default function HomePage() {
             console.log("✅ Groups refreshed after joining:", formattedGroups.length);
           } catch (error) {
             console.error("⚠️ Failed to refresh groups after joining:", error);
+          } finally {
+            setIsJoining(false) // Reset joining state
           }
         }, 1000);
 
@@ -937,6 +945,7 @@ export default function HomePage() {
           description: data.error || "Invalid invite code or you're already a member",
           duration: 5000,
         });
+        setIsJoining(false) // Reset joining state on error
       }
     } catch (error) {
       console.error("Error joining group:", error);
@@ -945,6 +954,7 @@ export default function HomePage() {
         description: "Could not join the group. Please try again.",
         duration: 5000,
       });
+      setIsJoining(false) // Reset joining state on error
     }
   }
 
@@ -1327,12 +1337,6 @@ export default function HomePage() {
               </div>
 
               {/* Join Group by Invite Code */}
-              <div className="mb-4 p-4 bg-concordia-dark-purple/50 border border-concordia-light-purple/30 rounded-lg">
-                <h3 className="text-white font-semibold mb-3 flex items-center">
-                  <Users className="h-5 w-5 mr-2 text-concordia-pink" />
-                  Join Existing Group
-                </h3>
-              </div>
               <div className="mb-6">
                 <Card className="bg-concordia-dark-blue/80 border-concordia-light-purple/30 backdrop-blur-sm">
                   <CardHeader>
@@ -1355,9 +1359,9 @@ export default function HomePage() {
                       <Button 
                         onClick={() => joinGroupByInviteCode(inviteCode)}
                         className="bg-concordia-pink hover:bg-concordia-pink/80"
-                        disabled={!inviteCode || !isConnected}
+                        disabled={!inviteCode || isJoining}
                       >
-                        Join Group
+                        {isJoining ? "Joining..." : "Join Group"}
                       </Button>
                     </div>
                   </CardContent>

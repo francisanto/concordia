@@ -20,7 +20,8 @@ import {
   Trophy,
   Crown,
   Star,
-  Zap
+  Zap,
+  Shield
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { nftMetadataService, type AuraNFTMetadata } from "@/lib/nft-metadata-service"
@@ -318,15 +319,33 @@ export function AuraRedemptionNFT() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="text-center">
-        <h2 className="text-3xl font-bold text-white mb-2">
-          <Gift className="inline-block mr-2 h-8 w-8 text-concordia-pink" />
-          Aura Redemption NFTs
-        </h2>
-        <p className="text-white/80 max-w-2xl mx-auto">
-          Redeem your Aura codes as NFTs and claim your rewards. Each code is a unique NFT that can be redeemed once for Aura Points.
+    <div className="space-y-8">
+      <div className="text-center space-y-4">
+        <div className="flex items-center justify-center space-x-3 mb-4">
+          <div className="p-3 bg-gradient-to-r from-concordia-pink/20 to-concordia-light-purple/20 rounded-full">
+            <Gift className="h-10 w-10 text-concordia-pink" />
+          </div>
+        </div>
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-concordia-pink to-concordia-light-purple bg-clip-text text-transparent">
+          Aura NFT Redemption
+        </h1>
+        <p className="text-white/80 max-w-3xl mx-auto text-lg leading-relaxed">
+          Transform your Aura codes into unique NFTs and unlock exclusive rewards. Each redemption code becomes a collectible digital asset with real value.
         </p>
+        <div className="flex items-center justify-center space-x-6 text-sm text-white/60">
+          <div className="flex items-center space-x-1">
+            <Sparkles className="h-4 w-4 text-concordia-pink" />
+            <span>Collectible NFTs</span>
+          </div>
+          <div className="flex items-center space-x-1">
+            <Shield className="h-4 w-4 text-concordia-light-purple" />
+            <span>Blockchain Secured</span>
+          </div>
+          <div className="flex items-center space-x-1">
+            <Coins className="h-4 w-4 text-yellow-400" />
+            <span>Real Aura Value</span>
+          </div>
+        </div>
       </div>
 
       <Tabs defaultValue="redeem" className="w-full">
@@ -361,25 +380,31 @@ export function AuraRedemptionNFT() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-white">Tier</Label>
-                <div className="grid grid-cols-4 gap-2">
+              <div className="space-y-4">
+                <Label className="text-white text-lg font-semibold">Select Tier</Label>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                   {[1, 2, 3, 4].map((tier) => {
                     const info = getTierInfo(tier)
                     const auraAmount = tier === 1 ? 100 : tier === 2 ? 250 : tier === 3 ? 500 : 1000
                     return (
-                      <Button
+                      <Card
                         key={tier}
-                        variant={selectedTier === tier ? "default" : "outline"}
+                        className={`cursor-pointer transition-all duration-200 ${
+                          selectedTier === tier 
+                            ? 'bg-gradient-to-br from-concordia-pink/30 to-concordia-light-purple/30 border-concordia-pink shadow-lg shadow-concordia-pink/20' 
+                            : 'bg-concordia-purple/20 border-concordia-light-purple/30 hover:border-concordia-light-purple/50'
+                        }`}
                         onClick={() => setSelectedTier(tier)}
-                        className={`${selectedTier === tier ? 'bg-concordia-pink border-concordia-pink' : 'border-concordia-light-purple/50'} text-white`}
                       >
-                        <div className="flex flex-col items-center">
-                          {info.icon}
-                          <span className="text-xs">{info.name}</span>
-                          <span className="text-xs">{auraAmount} Aura</span>
-                        </div>
-                      </Button>
+                        <CardContent className="p-4 text-center space-y-2">
+                          <div className={`w-12 h-12 mx-auto rounded-full flex items-center justify-center ${info.color}`}>
+                            {info.icon}
+                          </div>
+                          <div className="text-white font-semibold">{info.name}</div>
+                          <div className="text-concordia-pink font-bold text-lg">{auraAmount}</div>
+                          <div className="text-white/60 text-xs">Aura Points</div>
+                        </CardContent>
+                      </Card>
                     )
                   })}
                 </div>

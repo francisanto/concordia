@@ -20,7 +20,8 @@ import {
   Wallet,
   ExternalLink,
   Eye,
-  Heart
+  Heart,
+  X
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
@@ -111,7 +112,7 @@ interface NFTToken {
 export function NFTWalletDisplay() {
   const { address, isConnected, chainId } = useAccount()
   const { toast } = useToast()
-  
+
   const [userNFTs, setUserNFTs] = useState<NFTToken[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [selectedNFT, setSelectedNFT] = useState<NFTToken | null>(null)
@@ -134,7 +135,7 @@ export function NFTWalletDisplay() {
       const nftTokens: NFTToken[] = codes.map((code: string, index: number) => {
         const tier = Math.floor(Math.random() * 4) + 1 // Random tier for demo
         const auraAmount = tier === 1 ? 100 : tier === 2 ? 250 : tier === 3 ? 500 : 1000
-        
+
         return {
           code,
           tier,
@@ -152,7 +153,7 @@ export function NFTWalletDisplay() {
     const tierNames = ["Basic", "Silver", "Gold", "Platinum"]
     const tierColors = ["#6B7280", "#C0C0C0", "#FFD700", "#E5E4E2"]
     const tierIcons = ["⭐", "🥈", "🥇", "💎"]
-    
+
     return {
       name: `${tierNames[tier - 1]} Aura Redemption Code`,
       description: `A rare ${tierNames[tier - 1].toLowerCase()} tier Aura redemption code worth ${auraAmount} Aura Points.`,
@@ -233,46 +234,62 @@ export function NFTWalletDisplay() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="text-center">
-        <h2 className="text-3xl font-bold text-white mb-2">
-          <Gift className="inline-block mr-2 h-8 w-8 text-concordia-pink" />
+      <div className="text-center mb-10 space-y-6">
+        <div className="flex items-center justify-center space-x-3 mb-4">
+          <div className="p-4 bg-gradient-to-r from-concordia-pink/20 to-concordia-light-purple/20 rounded-full">
+            <Wallet className="h-12 w-12 text-concordia-pink" />
+          </div>
+        </div>
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-concordia-pink to-concordia-light-purple bg-clip-text text-transparent">
           My NFT Collection
-        </h2>
-        <p className="text-white/80 max-w-2xl mx-auto">
-          Your beautiful Aura redemption code NFTs. Each NFT represents a unique redemption code with different tier values.
+        </h1>
+        <p className="text-white/80 max-w-3xl mx-auto text-lg leading-relaxed">
+          Discover your exclusive collection of Aura redemption NFTs. Each token is a unique digital asset representing real value and utility within the Concordia ecosystem.
         </p>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-concordia-purple/20 border-concordia-light-purple/30">
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-concordia-pink">{userNFTs.length}</div>
-            <div className="text-white/70 text-sm">Total NFTs</div>
+      {/* Enhanced Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <Card className="bg-gradient-to-br from-concordia-purple/30 to-concordia-dark-blue/50 border-concordia-light-purple/40">
+          <CardContent className="p-6 text-center">
+            <div className="w-12 h-12 mx-auto bg-concordia-pink/20 rounded-full flex items-center justify-center mb-3">
+              <Wallet className="h-6 w-6 text-concordia-pink" />
+            </div>
+            <div className="text-3xl font-bold text-white mb-1">{userNFTs.length}</div>
+            <div className="text-white/70 text-sm font-medium">Total NFTs</div>
           </CardContent>
         </Card>
-        <Card className="bg-concordia-purple/20 border-concordia-light-purple/30">
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-green-400">
+        <Card className="bg-gradient-to-br from-green-500/20 to-concordia-dark-blue/50 border-green-500/30">
+          <CardContent className="p-6 text-center">
+            <div className="w-12 h-12 mx-auto bg-green-500/20 rounded-full flex items-center justify-center mb-3">
+              <CheckCircle className="h-6 w-6 text-green-400" />
+            </div>
+            <div className="text-3xl font-bold text-green-400 mb-1">
               {userNFTs.filter(nft => !nft.isRedeemed).length}
             </div>
-            <div className="text-white/70 text-sm">Available</div>
+            <div className="text-white/70 text-sm font-medium">Available</div>
           </CardContent>
         </Card>
-        <Card className="bg-concordia-purple/20 border-concordia-light-purple/30">
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-red-400">
+        <Card className="bg-gradient-to-br from-red-500/20 to-concordia-dark-blue/50 border-red-500/30">
+          <CardContent className="p-6 text-center">
+            <div className="w-12 h-12 mx-auto bg-red-500/20 rounded-full flex items-center justify-center mb-3">
+              <X className="h-6 w-6 text-red-400" />
+            </div>
+            <div className="text-3xl font-bold text-red-400 mb-1">
               {userNFTs.filter(nft => nft.isRedeemed).length}
             </div>
-            <div className="text-white/70 text-sm">Redeemed</div>
+            <div className="text-white/70 text-sm font-medium">Redeemed</div>
           </CardContent>
         </Card>
-        <Card className="bg-concordia-purple/20 border-concordia-light-purple/30">
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-concordia-pink">
+        <Card className="bg-gradient-to-br from-yellow-500/20 to-concordia-dark-blue/50 border-yellow-500/30">
+          <CardContent className="p-6 text-center">
+            <div className="w-12 h-12 mx-auto bg-yellow-500/20 rounded-full flex items-center justify-center mb-3">
+              <Coins className="h-6 w-6 text-yellow-400" />
+            </div>
+            <div className="text-3xl font-bold text-yellow-400 mb-1">
               {userNFTs.reduce((total, nft) => total + nft.auraAmount, 0)}
             </div>
-            <div className="text-white/70 text-sm">Total Aura</div>
+            <div className="text-white/70 text-sm font-medium">Total Aura Value</div>
           </CardContent>
         </Card>
       </div>
@@ -352,7 +369,7 @@ export function NFTWalletDisplay() {
                       <div className="space-y-2">
                         <h4 className="text-white font-semibold text-lg">{nft.metadata?.name}</h4>
                         <p className="text-white/70 text-sm">{nft.metadata?.description}</p>
-                        
+
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-2">
                             <Coins className="h-4 w-4 text-concordia-pink" />
@@ -397,11 +414,11 @@ export function NFTWalletDisplay() {
                 alt={selectedNFT.metadata?.name}
                 className="w-full h-64 object-cover rounded-lg"
               />
-              
+
               <div className="space-y-3">
                 <h3 className="text-white font-semibold text-xl">{selectedNFT.metadata?.name}</h3>
                 <p className="text-white/70">{selectedNFT.metadata?.description}</p>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-concordia-purple/20 p-3 rounded-lg">
                     <div className="text-white/70 text-sm">Aura Points</div>
@@ -447,4 +464,4 @@ export function NFTWalletDisplay() {
       )}
     </div>
   )
-} 
+}
