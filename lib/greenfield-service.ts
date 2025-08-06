@@ -1,3 +1,4 @@
+
 import { ethers } from 'ethers';
 
 export interface GroupMetadata {
@@ -33,7 +34,7 @@ export interface MemberData {
 export interface ContributionData {
   id: string;
   contributor: string;
-  memberAddress?: string; // Alternative field name for compatibility
+  memberAddress?: string;
   amount: number;
   timestamp: string;
   auraPoints: number;
@@ -48,7 +49,7 @@ export interface GroupSettings {
   withdrawalDate: string;
   isActive: boolean;
   maxMembers: number;
-  publicAccess?: boolean; // Allow all team members to access
+  bucketName: string; // Each group has its own bucket
 }
 
 export interface BlockchainData {
@@ -63,36 +64,86 @@ export interface GreenfieldData {
   objectId: string;
   objectName: string;
   metadataHash: string;
-  bucketName: string;
+  bucketName: string; // Group-specific bucket
   endpoint: string;
-  publicRead?: boolean; // Make data publicly readable for team members
+  isOwner?: boolean;
 }
 
 export class GreenfieldService {
   private apiBaseUrl: string;
   private contractAddress: string;
-  private bucketId: string;
+  private adminBucketName: string; // Main admin bucket for all groups metadata
 
   constructor() {
-    // Use relative URLs for API routes in Next.js
-    this.apiBaseUrl = typeof window !== 'undefined' ? '' : 'https://concordia-production.up.railway.app';
+    this.apiBaseUrl = typeof window !== 'undefined' ? '' : process.env.NEXT_PUBLIC_API_URL || '';
     this.contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '';
-    
-    // Use your specific bucket ID
-    this.bucketId = '0x000000000000000000000000000000000000000000000000000000000000566f';
+    this.adminBucketName = 'concordia-admin-data'; // Admin bucket for all groups overview
   }
 
   /**
-   * Store group data in Greenfield
+   * Create a new bucket for a group (called when group is created)
    */
-  async storeGroupData(groupId: string, groupData: Partial<GroupMetadata>): Promise<{
+  async createGroupBucket(groupId: string, creatorAddress: string): Promise<{
+    success: boolean;
+    bucketName?: string;
+    bucketId?: string;
+    error?: string;
+  }> {
+    try {
+      console.log('🪣 Creating new bucket for group:', groupId);
+
+      const bucketName = `concordia-group-${groupId.toLowerCase()}`;
+      
+      const response = await fetch(`${this.apiBaseUrl}/api/buckets/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          bucketName,
+          groupId,
+          creatorAddress,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to create group bucket');
+      }
+
+      console.log('✅ Group bucket created successfully:', bucketName);
+      return {
+        success: true,
+        bucketName,
+        bucketId: result.bucketId,
+      };
+    } catch (error) {
+      console.error('❌ Error creating group bucket:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  /**
+   * Store group data in its own bucket
+   */
+  async storeGroupData(groupId: string, groupData: Partial<GroupMetadata>, userAddress: string): Promise<{
     success: boolean;
     objectId?: string;
     metadataHash?: string;
     error?: string;
   }> {
     try {
-      console.log('📤 Storing group data in Greenfield:', { groupId, groupData });
+      console.log('📤 Storing group data in group bucket:', { groupId, userAddress });
+
+      // Check if user is group creator or member
+      const hasAccess = await this.checkGroupAccess(groupId, userAddress);
+      if (!hasAccess.canWrite) {
+        throw new Error('Access denied: You cannot write to this group');
+      }
 
       const response = await fetch(`${this.apiBaseUrl}/api/groups/store`, {
         method: 'POST',
@@ -101,7 +152,11 @@ export class GreenfieldService {
         },
         body: JSON.stringify({
           groupId,
-          groupData,
+          groupData: {
+            ...groupData,
+            updatedAt: new Date().toISOString(),
+          },
+          userAddress,
         }),
       });
 
@@ -110,6 +165,9 @@ export class GreenfieldService {
       if (!response.ok) {
         throw new Error(result.error || 'Failed to store group data');
       }
+
+      // Also update admin bucket with group metadata
+      await this.updateAdminBucket(groupId, groupData, 'update');
 
       console.log('✅ Group data stored successfully:', result);
       return {
@@ -127,20 +185,29 @@ export class GreenfieldService {
   }
 
   /**
-   * Retrieve group data from Greenfield
+   * Get group data from its bucket (users can only read their own groups)
    */
-  async getGroupData(groupId: string): Promise<{
+  async getGroupData(groupId: string, userAddress?: string): Promise<{
     success: boolean;
     data?: GroupMetadata;
     error?: string;
   }> {
     try {
-      console.log('📥 Retrieving group data from Greenfield:', groupId);
+      console.log('📥 Retrieving group data from group bucket:', groupId, userAddress);
+
+      // Check access rights
+      if (userAddress) {
+        const hasAccess = await this.checkGroupAccess(groupId, userAddress);
+        if (!hasAccess.canRead) {
+          throw new Error('Access denied: You cannot access this group');
+        }
+      }
 
       const response = await fetch(`${this.apiBaseUrl}/api/groups/${groupId}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'User-Address': userAddress || '',
         },
       });
 
@@ -150,7 +217,7 @@ export class GreenfieldService {
         throw new Error(result.error || 'Failed to retrieve group data');
       }
 
-      console.log('✅ Group data retrieved successfully:', result);
+      console.log('✅ Group data retrieved successfully');
       return {
         success: true,
         data: result.metadata,
@@ -165,39 +232,36 @@ export class GreenfieldService {
   }
 
   /**
-   * Update group metadata in Greenfield
+   * Get all groups for a user (only groups they are members of)
    */
-  async updateGroupMetadata(groupId: string, updates: Partial<GroupMetadata>): Promise<{
+  async getUserGroups(userAddress: string): Promise<{
     success: boolean;
-    metadataHash?: string;
+    data?: GroupMetadata[];
     error?: string;
   }> {
     try {
-      console.log('🔄 Updating group metadata in Greenfield:', { groupId, updates });
+      console.log('📥 Retrieving user groups:', userAddress);
 
-      const response = await fetch(`${this.apiBaseUrl}/api/groups/${groupId}/update`, {
-        method: 'PUT',
+      const response = await fetch(`${this.apiBaseUrl}/api/groups?address=${userAddress}`, {
+        method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          updates,
-        }),
       });
 
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to update group metadata');
+        throw new Error(result.error || 'Failed to retrieve user groups');
       }
 
-      console.log('✅ Group metadata updated successfully:', result);
+      console.log('✅ User groups retrieved successfully:', result.groups?.length || 0);
       return {
         success: true,
-        metadataHash: result.metadataHash,
+        data: result.groups || [],
       };
     } catch (error) {
-      console.error('❌ Error updating group metadata:', error);
+      console.error('❌ Error retrieving user groups:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -206,15 +270,169 @@ export class GreenfieldService {
   }
 
   /**
-   * Store contribution data in Greenfield
+   * Admin only: Get all groups from all buckets
    */
-  async storeContribution(groupId: string, contributionData: ContributionData): Promise<{
+  async getAllGroupsAdmin(adminKey: string): Promise<{
+    success: boolean;
+    data?: GroupMetadata[];
+    error?: string;
+  }> {
+    try {
+      console.log('👑 Admin retrieving all groups');
+
+      const response = await fetch(`${this.apiBaseUrl}/api/admin/groups?admin_key=${adminKey}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to retrieve all groups');
+      }
+
+      console.log('✅ All groups retrieved successfully:', result.groups?.length || 0);
+      return {
+        success: true,
+        data: result.groups || [],
+      };
+    } catch (error) {
+      console.error('❌ Error retrieving all groups:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  /**
+   * Join a group (add member to group's bucket)
+   */
+  async joinGroup(groupId: string, userAddress: string, nickname: string): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
+    try {
+      console.log('🤝 User joining group:', { groupId, userAddress, nickname });
+
+      const response = await fetch(`${this.apiBaseUrl}/api/groups/join`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          groupId,
+          userAddress,
+          nickname,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to join group');
+      }
+
+      console.log('✅ Successfully joined group');
+      return {
+        success: true,
+      };
+    } catch (error) {
+      console.error('❌ Error joining group:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  /**
+   * Check if user has access to a group
+   */
+  async checkGroupAccess(groupId: string, userAddress: string): Promise<{
+    canRead: boolean;
+    canWrite: boolean;
+    isCreator: boolean;
+    error?: string;
+  }> {
+    try {
+      const response = await fetch(`${this.apiBaseUrl}/api/groups/${groupId}/access?address=${userAddress}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        return {
+          canRead: false,
+          canWrite: false,
+          isCreator: false,
+          error: result.error,
+        };
+      }
+
+      return {
+        canRead: result.canRead || false,
+        canWrite: result.canWrite || false,
+        isCreator: result.isCreator || false,
+      };
+    } catch (error) {
+      console.error('❌ Error checking group access:', error);
+      return {
+        canRead: false,
+        canWrite: false,
+        isCreator: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  /**
+   * Update admin bucket with group metadata
+   */
+  private async updateAdminBucket(groupId: string, groupData: Partial<GroupMetadata>, action: 'create' | 'update' | 'delete'): Promise<void> {
+    try {
+      console.log('👑 Updating admin bucket:', { groupId, action });
+
+      await fetch(`${this.apiBaseUrl}/api/admin/update-bucket`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          groupId,
+          groupData,
+          action,
+          timestamp: new Date().toISOString(),
+        }),
+      });
+    } catch (error) {
+      console.warn('⚠️ Failed to update admin bucket:', error);
+      // Don't throw error as this is secondary operation
+    }
+  }
+
+  /**
+   * Store contribution in group bucket
+   */
+  async storeContribution(groupId: string, contributionData: ContributionData, userAddress: string): Promise<{
     success: boolean;
     contributionId?: string;
     error?: string;
   }> {
     try {
-      console.log('📤 Storing contribution in Greenfield:', { groupId, contributionData });
+      console.log('💰 Storing contribution in group bucket:', { groupId, userAddress });
+
+      // Check if user has write access
+      const hasAccess = await this.checkGroupAccess(groupId, userAddress);
+      if (!hasAccess.canWrite) {
+        throw new Error('Access denied: You cannot add contributions to this group');
+      }
 
       const response = await fetch(`${this.apiBaseUrl}/api/contributions/store`, {
         method: 'POST',
@@ -224,6 +442,7 @@ export class GreenfieldService {
         body: JSON.stringify({
           groupId,
           contributionData,
+          userAddress,
         }),
       });
 
@@ -233,7 +452,7 @@ export class GreenfieldService {
         throw new Error(result.error || 'Failed to store contribution');
       }
 
-      console.log('✅ Contribution stored successfully:', result);
+      console.log('✅ Contribution stored successfully');
       return {
         success: true,
         contributionId: result.contributionId,
@@ -248,36 +467,38 @@ export class GreenfieldService {
   }
 
   /**
-   * Get contribution history from Greenfield
+   * Delete group and its bucket (creator only)
    */
-  async getContributionHistory(groupId: string): Promise<{
+  async deleteGroup(groupId: string, userAddress: string): Promise<{
     success: boolean;
-    contributions?: ContributionData[];
     error?: string;
   }> {
     try {
-      console.log('📥 Retrieving contribution history from Greenfield:', groupId);
+      console.log('🗑️ Deleting group and bucket:', { groupId, userAddress });
 
-      const response = await fetch(`${this.apiBaseUrl}/api/contributions/${groupId}`, {
-        method: 'GET',
+      const response = await fetch(`${this.apiBaseUrl}/api/groups/${groupId}`, {
+        method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
+          'User-Address': userAddress,
         },
       });
 
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to retrieve contribution history');
+        throw new Error(result.error || 'Failed to delete group');
       }
 
-      console.log('✅ Contribution history retrieved successfully:', result);
+      // Update admin bucket
+      await this.updateAdminBucket(groupId, {}, 'delete');
+
+      console.log('✅ Group deleted successfully');
       return {
         success: true,
-        contributions: result.contributions,
       };
     } catch (error) {
-      console.error('❌ Error retrieving contribution history:', error);
+      console.error('❌ Error deleting group:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -286,50 +507,7 @@ export class GreenfieldService {
   }
 
   /**
-   * Upload file to Greenfield
-   */
-  async uploadFile(file: File): Promise<{
-    success: boolean;
-    objectId?: string;
-    objectName?: string;
-    url?: string;
-    error?: string;
-  }> {
-    try {
-      console.log('📤 Uploading file to Greenfield:', file.name);
-
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const response = await fetch(`${this.apiBaseUrl}/api/upload`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to upload file');
-      }
-
-      console.log('✅ File uploaded successfully:', result);
-      return {
-        success: true,
-        objectId: result.objectId,
-        objectName: result.objectName,
-        url: result.url,
-      };
-    } catch (error) {
-      console.error('❌ Error uploading file:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
-    }
-  }
-
-  /**
-   * Generate metadata hash for group data
+   * Generate metadata hash for data integrity
    */
   generateMetadataHash(data: any): string {
     const dataString = JSON.stringify(data, Object.keys(data).sort());
@@ -337,15 +515,7 @@ export class GreenfieldService {
   }
 
   /**
-   * Verify metadata integrity
-   */
-  verifyMetadataIntegrity(data: any, expectedHash: string): boolean {
-    const actualHash = this.generateMetadataHash(data);
-    return actualHash === expectedHash;
-  }
-
-  /**
-   * Create comprehensive group metadata
+   * Create comprehensive group metadata with proper bucket assignment
    */
   createGroupMetadata(params: {
     groupId: string;
@@ -360,10 +530,7 @@ export class GreenfieldService {
     transactionHash: string;
     blockNumber: string;
     gasUsed: string;
-    objectId: string;
-    objectName: string;
-    bucketName: string;
-    endpoint: string;
+    bucketName: string; // Group-specific bucket
   }): GroupMetadata {
     const metadata: GroupMetadata = {
       groupId: params.groupId,
@@ -385,6 +552,7 @@ export class GreenfieldService {
           contribution: 0,
           auraPoints: 5,
           hasVoted: false,
+          status: 'active',
         },
       ],
       contributions: [],
@@ -394,6 +562,7 @@ export class GreenfieldService {
         withdrawalDate: params.withdrawalDate,
         isActive: true,
         maxMembers: 10,
+        bucketName: params.bucketName, // Each group has its own bucket
       },
       blockchain: {
         contractAddress: params.contractAddress,
@@ -403,15 +572,15 @@ export class GreenfieldService {
         network: 'opBNB Testnet',
       },
       greenfield: {
-        objectId: params.objectId,
-        objectName: params.objectName,
+        objectId: `${params.groupId}-data`,
+        objectName: `groups/${params.groupId}/data.json`,
         metadataHash: '',
-        bucketName: params.bucketName,
-        endpoint: params.endpoint,
+        bucketName: params.bucketName, // Group-specific bucket
+        endpoint: 'https://gnfd-testnet-sp1.bnbchain.org',
       },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      version: '1.0',
+      version: '2.0',
     };
 
     // Generate metadata hash
@@ -419,81 +588,7 @@ export class GreenfieldService {
 
     return metadata;
   }
-
-  /**
-   * Get all groups from Greenfield
-   */
-  async getAllGroups(): Promise<{
-    success: boolean;
-    data?: GroupMetadata[];
-    error?: string;
-  }> {
-    try {
-      console.log('📥 Retrieving all groups from Greenfield');
-
-      const response = await fetch(`${this.apiBaseUrl}/api/groups`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to retrieve groups');
-      }
-
-      console.log('✅ All groups retrieved successfully:', result);
-      return {
-        success: true,
-        data: result.groups || [],
-      };
-    } catch (error) {
-      console.error('❌ Error retrieving all groups:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
-    }
-  }
-
-  /**
-   * Delete group data from Greenfield
-   */
-  async deleteGroupData(groupId: string): Promise<{
-    success: boolean;
-    error?: string;
-  }> {
-    try {
-      console.log('🗑️ Deleting group data from Greenfield:', groupId);
-
-      const response = await fetch(`${this.apiBaseUrl}/api/groups/${groupId}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to delete group data');
-      }
-
-      console.log('✅ Group data deleted successfully:', result);
-      return {
-        success: true,
-      };
-    } catch (error) {
-      console.error('❌ Error deleting group data:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
-    }
-  }
 }
 
 // Export singleton instance
-export const greenfieldService = new GreenfieldService(); 
+export const greenfieldService = new GreenfieldService();

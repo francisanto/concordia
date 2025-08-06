@@ -25,45 +25,99 @@ async function initGreenfield() {
 
 export async function POST(request: NextRequest) {
   try {
-    const { groupId, groupData } = await request.json()
-    if (!groupId || !groupData) {
-      return NextResponse.json({ error: "Group ID and data are required" }, { status: 400 })
+    console.log('📤 POST /api/groups/store - Storing group data in BNB Greenfield')
+
+    const { groupId, groupData, userAddress } = await request.json()
+
+    if (!groupId || !groupData || !userAddress) {
+      return NextResponse.json({
+        error: 'Missing required fields: groupId, groupData, userAddress'
+      }, { status: 400 })
     }
-    
-    console.log('📤 POST /api/groups/store - Storing group in BNB Greenfield:', groupId)
+
+    // Check if this is a new group creation or update
+    const isNewGroup = !groupData.createdAt || groupData.createdAt === groupData.updatedAt
+
+    if (isNewGroup) {
+      // Create new bucket for the group
+      console.log('🆕 Creating new group, creating bucket...')
+
+      try {
+        const createBucketResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/buckets/create`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            bucketName: `concordia-group-${groupId.toLowerCase()}`,
+            groupId,
+            creatorAddress: userAddress,
+          }),
+        })
+
+        if (!createBucketResponse.ok) {
+          console.error('❌ Failed to create bucket for group')
+          // Continue with storage even if bucket creation fails
+        } else {
+          console.log('✅ Bucket created successfully for group')
+        }
+      } catch (bucketError) {
+        console.error('❌ Error creating bucket:', bucketError)
+        // Continue with storage
+      }
+    } else {
+      // Check access permissions for existing group
+      try {
+        const accessResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/groups/${groupId}/access?address=${userAddress}`)
+        const accessResult = await accessResponse.json()
+
+        if (!accessResult.canWrite) {
+          return NextResponse.json({
+            error: 'Access denied: You cannot modify this group'
+          }, { status: 403 })
+        }
+      } catch (accessError) {
+        console.warn('⚠️ Could not verify access, proceeding with storage')
+      }
+    }
 
     const client = await initGreenfield()
-    const objectName = `groups/group_${groupId}.json`
+    // Use group-specific bucket
+    const groupBucketName = `concordia-group-${groupId.toLowerCase()}`
+    const objectName = `groups/${groupId}/data.json`
 
-    // Add metadata fields if needed
-    const metadata = {
-      groupId,
+    // Update group data with proper bucket information
+    const updatedGroupData = {
       ...groupData,
-      createdAt: new Date().toISOString(),
-      version: "1.0",
+      settings: {
+        ...groupData.settings,
+        bucketName: groupBucketName,
+      },
+      greenfield: {
+        ...groupData.greenfield,
+        bucketName: groupBucketName,
+      },
     }
 
     console.log('💾 Storing group data in BNB Greenfield...')
 
-    // Store in BNB Greenfield
+    // Store in group-specific bucket
     const createObjectTx = await client.object.createObject({
-      bucketName: GREENFIELD_CONFIG.bucketName,
+      bucketName: groupBucketName,
       objectName: objectName,
       creator: process.env.GREENFIELD_ACCOUNT_ADDRESS || "0x0000000000000000000000000000000000000000",
       visibility: "VISIBILITY_TYPE_PUBLIC_READ",
       contentType: "application/json",
       redundancyType: "REDUNDANCY_EC_TYPE",
-      payload: Buffer.from(JSON.stringify(metadata)),
+      payload: Buffer.from(JSON.stringify(updatedGroupData)),
     })
-    
+
     console.log('✅ Group stored successfully in BNB Greenfield:', groupId)
     console.log('🔗 Transaction hash:', createObjectTx.transactionHash)
 
     // Save user data to database for admin tracking
     try {
       console.log('💾 Saving user data to database for admin tracking...')
-      
-      const creatorAddress = groupData.creator || groupData.createdBy
+
+      const creatorAddress = groupData.creator || groupData.createdBy || userAddress
       if (creatorAddress) {
         // Create or update user in database
         await prisma.user.upsert({
@@ -106,7 +160,7 @@ export async function POST(request: NextRequest) {
       success: true,
       objectName: objectName,
       transactionHash: createObjectTx.transactionHash,
-      metadata,
+      metadata: updatedGroupData,
     })
   } catch (error) {
     console.error('❌ Error storing group data in BNB Greenfield:', error)
@@ -115,4 +169,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-} 
+}

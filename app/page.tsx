@@ -613,7 +613,7 @@ export default function HomePage() {
               targetAmount: group.targetAmount || 0,
               currentAmount: group.currentAmount || 0,
               contributionAmount: group.contributionAmount || 0,
-              duration: group.duration || "unknown",
+              duration: group.duration,
               endDate: group.endDate || "unknown",
               members: group.members || [],
               status: group.status || "active",
@@ -1014,6 +1014,18 @@ export default function HomePage() {
       });
     }
   }
+
+  // Placeholder for the contribution handler which needs to be implemented
+  const handleContribution = async (groupId: string, amount: number) => {
+    console.log(`Attempting to contribute ${amount} BNB to group ${groupId}`);
+    // This function needs to be implemented to handle the actual contribution logic,
+    // potentially involving interacting with the smart contract.
+    toast({
+      title: "Contribution Pending",
+      description: "Contribution logic needs to be implemented.",
+      duration: 3000,
+    });
+  };
 
   return (
     <div className="min-h-screen bg-concordia-dark-blue relative">
@@ -1459,7 +1471,7 @@ export default function HomePage() {
                         <SelectTrigger className="bg-concordia-dark-blue border-concordia-light-purple/50 text-white focus:border-concordia-pink focus:ring-concordia-pink/20">
                           <SelectValue placeholder="Select duration" />
                         </SelectTrigger>
-                                                  <SelectContent className="bg-concordia-dark-blue border-concordia-light-purple/50">
+                        <SelectContent className="bg-concordia-dark-blue border-concordia-light-purple/50">
                           <SelectItem value="1-month" className="text-white hover:bg-concordia-light-purple/20">
                             {"1 Month"}
                           </SelectItem>
@@ -1473,17 +1485,6 @@ export default function HomePage() {
                             {"12 Months"}
                           </SelectItem>
                         </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
-    )
-  }
                       </Select>
                       <p className="text-sm text-white/60">{"How long funds will be locked in the smart contract"}</p>
                     </div>
