@@ -254,27 +254,9 @@ export function GroupDashboard({
                 <p className="text-white/70 mb-6">
                   You haven't created or joined any savings groups yet. Start one to achieve your goals!
                 </p>
-                <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <Button
-                    size="lg"
-                    className="bg-gradient-to-r from-[#F042FF] to-[#7226FF] hover:from-[#F042FF]/90 hover:to-[#7226FF]/90 text-white font-semibold shadow-lg"
-                    onClick={() => {
-                      window.dispatchEvent(new CustomEvent("navigateToCreate"))
-                    }}
-                  >
-                    <Plus className="h-5 w-5 mr-2" />
-                    Create Your First Group
-                  </Button>
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="border-concordia-light-purple/50 text-concordia-light-purple hover:bg-concordia-light-purple/10 font-semibold shadow-lg"
-                    onClick={() => setJoinGroupModalOpen(true)}
-                  >
-                    <Users className="h-5 w-5 mr-2" />
-                    Join Existing Group
-                  </Button>
-                </div>
+                <p className="text-white/60">
+                  Use the "Create Group" button above to get started with your first savings group.
+                </p>
               </CardContent>
             </Card>
           ) : (
@@ -302,27 +284,16 @@ export function GroupDashboard({
                 <Target className="h-12 w-12 text-concordia-pink mx-auto mb-4" />
                 <h3 className="text-white text-xl font-semibold mb-2">Ready for Another Goal?</h3>
                 <p className="text-white/70 mb-6">Create a new savings group and invite your friends to join</p>
-                <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <Button
-                    size="lg"
-                    className="bg-gradient-to-r from-[#F042FF] to-[#7226FF] hover:from-[#F042FF]/90 hover:to-[#7226FF]/90 text-white font-semibold shadow-lg"
-                    onClick={() => {
-                      window.dispatchEvent(new CustomEvent("navigateToCreate"))
-                    }}
-                  >
-                    <Plus className="h-5 w-5 mr-2" />
-                    Create New Group
-                  </Button>
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="border-concordia-light-purple/50 text-concordia-light-purple hover:bg-concordia-light-purple/10 font-semibold shadow-lg"
-                    onClick={() => setJoinGroupModalOpen(true)}
-                  >
-                    <Users className="h-5 w-5 mr-2" />
-                    Join Existing Group
-                  </Button>
-                </div>
+                <Button
+                  size="lg"
+                  className="bg-gradient-to-r from-[#F042FF] to-[#7226FF] hover:from-[#F042FF]/90 hover:to-[#7226FF]/90 text-white font-semibold shadow-lg"
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent("navigateToCreate"))
+                  }}
+                >
+                  <Plus className="h-5 w-5 mr-2" />
+                  Create New Group
+                </Button>
               </CardContent>
             </Card>
           )}

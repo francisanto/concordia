@@ -3,11 +3,11 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { Users, Lock, Trophy, Target, ArrowRight, Shield, Coins, Wallet, ChevronDown } from "lucide-react"
 import { useAccount, useConnect, useDisconnect, useSwitchChain } from "wagmi"
 import { opBNBTestnet } from "wagmi/chains"
@@ -51,13 +51,13 @@ function WalletConnection({ handleDisconnect }: { handleDisconnect: () => void }
     try {
       console.log("🔗 Attempting to connect wallet...")
       console.log("Available connectors:", connectors.map(c => c.name))
-      
+
       // Check if MetaMask is installed
       if (typeof window !== 'undefined' && !window.ethereum) {
         alert("MetaMask is not installed. Please install MetaMask extension first.")
         return
       }
-      
+
       // Try to find MetaMask connector
       const metaMaskConnector = connectors.find((connector) => 
         connector.name === "MetaMask" || connector.name === "Injected" || connector.name === "Browser Wallet"
@@ -189,13 +189,19 @@ export default function HomePage() {
   const [inviteCode, setInviteCode] = useState("")
   const [joinGroupModalOpen, setJoinGroupModalOpen] = useState(false)
 
-  // Move handleDisconnect inside HomePage
+  // Define admin wallet from environment variables or default
+  const ADMIN_WALLET = process.env.NEXT_PUBLIC_ADMIN_WALLET?.toLowerCase() || "0xdA13e8f82C83d14E7aa639354054B7f914cA0998"
+
+  // Check if current user is admin
+  useEffect(() => {
+    setIsAdmin(address?.toLowerCase() === ADMIN_WALLET);
+  }, [address, ADMIN_WALLET]);
+
+  // Handle wallet disconnection
   const handleDisconnect = () => {
     try {
       console.log("🔌 Attempting to disconnect wallet...");
-      // First try the proper disconnect
       disconnect();
-      // Force clear any remaining connection state
       if (typeof window !== 'undefined') {
         localStorage.removeItem('wagmi.connected');
         localStorage.removeItem('wagmi.wallet');
@@ -207,6 +213,7 @@ export default function HomePage() {
       setUserGroups([]);
       setActiveTab("home");
       setAutoRedirectDone(false);
+      setIsAdmin(false); // Reset admin status on disconnect
       console.log("✅ Wallet disconnected successfully and redirected to home");
     } catch (error) {
       console.error("❌ Error disconnecting wallet:", error);
@@ -219,6 +226,7 @@ export default function HomePage() {
         setUserGroups([]);
         setActiveTab("home");
         setAutoRedirectDone(false);
+        setIsAdmin(false);
       } catch (e) {
         console.error("❌ Error clearing storage:", e);
       }
@@ -238,11 +246,11 @@ export default function HomePage() {
       setIsLoadingGroups(true);
       try {
         console.log("🔄 Loading groups for wallet:", address);
-        
+
         // First try localStorage for immediate response
         const { dataPersistenceService } = await import('@/lib/data-persistence');
         const localGroups = await dataPersistenceService.loadGroups();
-        
+
         // Filter groups where user is creator or member
         const userLocalGroups = localGroups.filter((group: any) => {
           const isCreator = group.createdBy?.toLowerCase() === address.toLowerCase() || 
@@ -254,7 +262,7 @@ export default function HomePage() {
         });
 
         console.log("📊 Local groups found:", userLocalGroups.length);
-        
+
         // Format and set local groups immediately for better UX
         if (userLocalGroups.length > 0) {
           const formattedLocalGroups: SavingsGroup[] = userLocalGroups.map((group: any) => ({
@@ -279,7 +287,7 @@ export default function HomePage() {
             createdAt: group.createdAt || new Date().toISOString(),
             isActive: group.isActive !== undefined ? group.isActive : true,
           }));
-          
+
           setUserGroups(formattedLocalGroups);
           console.log("✅ Local groups loaded immediately:", formattedLocalGroups.length);
         }
@@ -289,7 +297,7 @@ export default function HomePage() {
           const { hybridStorageService } = await import('@/lib/hybrid-storage');
           const remoteGroups = await hybridStorageService.loadGroups(address);
           console.log("📊 Remote groups from Greenfield:", remoteGroups.length);
-          
+
           if (remoteGroups.length > 0) {
             const formattedRemoteGroups: SavingsGroup[] = remoteGroups.map((group: any) => ({
               id: group.id,
@@ -313,12 +321,12 @@ export default function HomePage() {
               createdAt: group.createdAt || new Date().toISOString(),
               isActive: group.isActive !== undefined ? group.isActive : true,
             }));
-            
+
             // Merge with local groups (remote takes priority)
             const mergedGroups = [...formattedRemoteGroups];
             setUserGroups(mergedGroups);
             console.log("✅ Remote groups merged:", mergedGroups.length);
-            
+
             toast({
               title: "✅ Data Synced",
               description: "Your groups are synced across devices",
@@ -329,11 +337,11 @@ export default function HomePage() {
           console.log("⚠️ Remote sync failed, using local data:", remoteError);
           // Keep using local groups if remote fails
         }
-        
+
       } catch (error) {
         console.error("❌ Error loading groups:", error);
         setUserGroups([]);
-        
+
         toast({
           title: "⚠️ Loading Error", 
           description: "Failed to load groups. Please try refreshing the page.",
@@ -343,7 +351,7 @@ export default function HomePage() {
         setIsLoadingGroups(false);
       }
     };
-   
+
     loadGroups();
   }, [isConnected, address, toast]);
 
@@ -351,11 +359,11 @@ export default function HomePage() {
   const saveGroup = async (groupData: any) => {
     try {
       console.log("💾 Saving group via hybrid storage service:", groupData);
-      
+
       if (!address) {
         throw new Error("Wallet not connected");
       }
-      
+
       // Prepare the group data
       const preparedGroupData = {
         id: groupData.id,
@@ -387,14 +395,14 @@ export default function HomePage() {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
-      
+
       // Use the hybrid storage service to save the group
       const { hybridStorageService } = await import('@/lib/hybrid-storage');
       const success = await hybridStorageService.saveGroup(preparedGroupData, address);
-      
+
       if (success) {
         console.log("✅ Group saved to Greenfield successfully");
-        
+
         // Add the new group to the current list immediately
         const newGroup: SavingsGroup = {
           id: groupData.id,
@@ -420,10 +428,10 @@ export default function HomePage() {
           createdAt: new Date().toISOString(),
           isActive: true
         };
-        
+
         setUserGroups(prev => [...prev, newGroup]);
         console.log("✅ Group added to dashboard:", newGroup.id);
-        
+
         toast({
           title: "✅ Group Created",
           description: "Group saved to BNB Greenfield successfully",
@@ -432,221 +440,209 @@ export default function HomePage() {
       } else {
         throw new Error("Failed to save to Greenfield");
       }
-      
+
     } catch (error) {
       console.error("❌ Error saving group to Greenfield:", error);
-      
+
       toast({
         title: "❌ Save Failed",
         description: "Failed to save group to BNB Greenfield. Please try again.",
         duration: 5000,
       });
-      
+
       throw error;
     }
   };
 
-  // Handle wallet disconnection
+  // Load user's groups from Greenfield when wallet connects
   useEffect(() => {
-    if (!isConnected && userGroups.length > 0) {
-      // Clear groups when wallet disconnects
-      setUserGroups([])
-      setUserAuraPoints(0)
-      console.log("🔌 Wallet disconnected, cleared user groups and aura points")
-    }
-  }, [isConnected, userGroups.length])
+    const loadUserGroups = async () => {
+      if (!isConnected || !address) {
+        console.log("🔌 Wallet not connected, skipping group load");
+        setUserGroups([]);
+        setIsLoadingGroups(false);
+        return;
+      }
 
-  // Calculate Aura Points based on user's contributions (simplified mechanism)
-  useEffect(() => {
-    if (isConnected && address && userGroups.length > 0) {
-      let totalAuraPoints = 0
-      
-      userGroups.forEach(group => {
-        // Find user's contribution in this group
-        const userMember = group.members.find(member => 
-          member.address.toLowerCase() === address.toLowerCase()
-        )
-        
-        if (userMember) {
-          // Each payment gets 10 Aura Points
-          const payments = Math.floor(userMember.contributed / group.contributionAmount)
-          totalAuraPoints += payments * 10
-          
-          // Early payments (first 3 members) get 5 extra points
-          if (group.members.indexOf(userMember) < 3) {
-            totalAuraPoints += 5
-          }
+      setIsLoadingGroups(true);
+      try {
+        console.log('📥 Loading user groups from Greenfield...');
+
+        // Fetch groups from API with user address
+        const response = await fetch(`/api/groups?address=${address}${isAdmin ? '&admin_key=' + process.env.ADMIN_API_KEY : ''}`)
+        const data = await response.json()
+
+        if (data.success && data.groups) {
+          // Convert Greenfield data to SavingsGroup format
+          const formattedGroups: SavingsGroup[] = data.groups.map((group: any) => ({
+            id: group.groupId || group.id,
+            name: group.name,
+            goal: group.description,
+            targetAmount: group.goalAmount || 0,
+            currentAmount: group.currentAmount || 0,
+            contributionAmount: group.contributionAmount || 0,
+            duration: group.duration,
+            endDate: group.withdrawalDate || group.endDate,
+            members: group.members || [],
+            status: group.settings?.isActive ? "active" : "completed",
+            nextContribution: group.nextContribution || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+            createdBy: group.creator,
+            createdAt: group.createdAt,
+            isActive: group.settings?.isActive !== false
+          }))
+
+          setUserGroups(formattedGroups)
+          console.log('✅ User groups loaded:', formattedGroups.length)
+        } else {
+          console.log('📭 No groups found for user')
+          setUserGroups([])
         }
+      } catch (error) {
+        console.error("❌ Error loading user groups from Greenfield:", error)
+        toast.error("Failed to load your groups from blockchain storage")
+        setUserGroups([])
+      } finally {
+        setIsLoadingGroups(false)
+      }
+    };
+
+    loadUserGroups();
+  }, [isConnected, address, isAdmin]); // Re-run if isAdmin status changes
+
+  // Handle group deletion using Greenfield
+  const handleDeleteGroup = async (groupId: string) => {
+    try {
+      console.log('🗑️ Deleting group from Greenfield:', groupId)
+
+      const response = await fetch(`/api/groups/${groupId}/delete`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       })
-      
-      setUserAuraPoints(totalAuraPoints)
-      console.log("💫 Calculated Aura Points:", totalAuraPoints)
-    }
-  }, [isConnected, address, userGroups])
 
-  // Function to verify admin access
-  const verifyAdminAccess = async () => {
-    if (!adminApiKey) {
-      toast({
-        title: "❌ API Key Required",
-        description: "Please enter an admin API key",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    try {
-      const response = await fetch(`/api/admin/groups?admin_key=${adminApiKey}`);
-      
-      if (response.ok) {
-        setIsAdmin(true);
-        toast({
-          title: "✅ Admin Access Granted",
-          description: "You now have access to all group data",
-        });
+      const result = await response.json()
+
+      if (result.success) {
+        // Update user's groups
+        setUserGroups(prevGroups => prevGroups.filter(group => group.id !== groupId))
+        toast.success("Group deleted successfully from blockchain")
       } else {
-        toast({
-          title: "❌ Access Denied",
-          description: "Invalid admin API key",
-          variant: "destructive"
-        });
+        throw new Error(result.error)
       }
     } catch (error) {
-      console.error("Error verifying admin access:", error);
-      toast({
-        title: "❌ Verification Error",
-        description: "Could not verify admin access",
-        variant: "destructive"
-      });
+      console.error("❌ Error deleting group from Greenfield:", error)
+      toast.error("Failed to delete group from blockchain storage")
     }
   }
-  
-  // Function to join a group by invite code
-  const joinGroupByInviteCode = async (inviteCode: string) => {
-    if (!isConnected || !address) {
-      toast({
-        title: "❌ Wallet Not Connected",
-        description: "Please connect your wallet to join a group",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    if (!inviteCode) {
-      toast({
-        title: "❌ Invite Code Required",
-        description: "Please enter a valid invite code",
-        variant: "destructive"
-      });
-      return;
-    }
-    
+
+  // Handle group creation and saving to Greenfield
+  const handleGroupCreated = async (newGroup: SavingsGroup) => {
     try {
-      const response = await fetch(`/api/groups/join?invite_code=${inviteCode}&address=${address}`);
-      const data = await response.json();
-      
-      if (response.ok && data.success) {
-        toast({
-          title: "✅ Group Joined",
-          description: `You've successfully joined ${data.group.name}`,
-        });
-        
-        // Refresh groups to include the newly joined group
-        const { hybridStorageService } = await import('@/lib/hybrid-storage');
-        const allGroups = await hybridStorageService.loadGroups(address);
-        
-        const formattedGroups: SavingsGroup[] = allGroups.map((group: any) => ({
-          id: group.id,
-          name: group.name || "Unnamed Group",
-          goal: group.description || group.goal || "No description",
-          targetAmount: group.targetAmount || 0,
-          currentAmount: group.currentAmount || 0,
-          contributionAmount: group.contributionAmount || 0,
-          duration: group.duration || "unknown",
-          endDate: group.endDate || "unknown",
-          members: group.members || [],
-          status: group.status || "active",
-          nextContribution: group.nextContribution || "unknown",
-          createdBy: group.createdBy || "unknown",
-          isActive: group.isActive !== false,
-        }));
-        
-        setUserGroups(formattedGroups);
-        setActiveTab("dashboard");
+      console.log('💾 Saving group to Greenfield:', newGroup)
+
+      // Convert to Greenfield format
+      const groupData = {
+        groupId: newGroup.id,
+        name: newGroup.name,
+        description: newGroup.goal,
+        creator: newGroup.createdBy,
+        goalAmount: newGroup.targetAmount,
+        currentAmount: newGroup.currentAmount,
+        contributionAmount: newGroup.contributionAmount,
+        duration: newGroup.duration,
+        withdrawalDate: newGroup.endDate,
+        members: newGroup.members,
+        settings: {
+          isActive: true,
+          maxMembers: 10,
+          dueDay: new Date().getDate(),
+        },
+        contributions: [],
+        blockchain: {
+          contractAddress: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '',
+          transactionHash: '',
+          blockNumber: '',
+          gasUsed: '',
+          network: 'opBNB Testnet',
+        },
+        greenfield: {
+          objectId: `group_${newGroup.id}`,
+          objectName: `groups/group_${newGroup.id}.json`,
+          metadataHash: '',
+          bucketName: 'concordia-data',
+          endpoint: process.env.GREENFIELD_ENDPOINT || '',
+        },
+      }
+
+      const response = await fetch('/api/groups/store', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          groupId: newGroup.id,
+          groupData,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        // Update user's groups and navigate to dashboard
+        setUserGroups(prevGroups => [...prevGroups, newGroup])
+        setTeamName("")
+        setGroupDescription("")
+        setContributionAmount("")
+        setDuration("")
+        setWithdrawalDate("")
+        setDueDay("")
+        setActiveTab("dashboard")
+        toast.success("Group created and stored on blockchain!")
       } else {
-        toast({
-          title: "❌ Failed to Join Group",
-          description: data.error || "Invalid invite code or you're already a member",
-          variant: "destructive"
-        });
+        throw new Error(result.error)
       }
     } catch (error) {
-      console.error("Error joining group:", error);
-      toast({
-        title: "❌ Error",
-        description: "Could not join the group. Please try again.",
-        variant: "destructive"
-      });
+      console.error("❌ Error saving group to Greenfield:", error)
+      toast.error("Failed to save group to blockchain storage")
     }
   }
-  
-  // Auto-switch to appropriate page when wallet connects
+
+  // Effect to handle auto-redirect based on connection status and groups
   useEffect(() => {
-    // Only redirect if connected AND auto-redirect hasn't happened yet
     if (isConnected && !autoRedirectDone && address) {
-      // Check if the connected address is the admin address
-      const checkIfAdmin = async () => {
-        try {
-          const response = await fetch(`/api/admin/groups?check_admin=true&address=${address}`);
-          const data = await response.json();
-          
-          if (data.isAdmin) {
-            console.log("👑 Admin wallet detected");
-            setIsAdmin(true);
-            // Set admin API key from response if available
-            if (data.adminApiKey) {
-              setAdminApiKey(data.adminApiKey);
-            }
-          }
-        } catch (error) {
-          console.error("❌ Error checking admin status:", error);
-        }
-      };
-      
-      checkIfAdmin();
-      
       // If currently on the home tab, perform the redirect
       if (activeTab === "home") {
         setTimeout(() => {
-          // Check if user has existing groups
+          // Check if the user has existing groups
           if (userGroups.length > 0) {
-            setActiveTab("dashboard") // Go to dashboard if groups exist
+            setActiveTab("dashboard");
             console.log("🔄 Auto-redirecting to dashboard - user has existing groups");
           } else {
-            setActiveTab("options") // Go to group options if no groups
+            setActiveTab("options"); // Show group options if no groups exist
             console.log("🔄 Auto-redirecting to group options - new user");
           }
-          setAutoRedirectDone(true) // Mark redirect as done
-          
+          setAutoRedirectDone(true); // Mark redirect as done
+
           // Show welcome message
           toast({
             title: "🔗 Wallet Connected",
             description: userGroups.length > 0 ? "Welcome back! Your groups are loaded." : "Welcome! Choose to create or join a group.",
             duration: 3000,
           });
-        }, 1500) // Increased delay to allow data loading
+        }, 1500); // Delay to allow data loading
       }
     }
-    // If disconnected, redirect to home and reset the flag
+    // If disconnected, redirect to home and reset flags
     if (!isConnected && activeTab !== "home") {
-      setActiveTab("home")
-      setAutoRedirectDone(false)
-      setIsAdmin(false)
-      setAdminApiKey("")
+      setActiveTab("home");
+      setAutoRedirectDone(false);
+      setIsAdmin(false); // Ensure admin status is reset
       console.log("🔌 Wallet disconnected, redirected to home page");
     }
-  }, [isConnected, activeTab, autoRedirectDone, address, toast, userGroups.length])
+  }, [isConnected, activeTab, autoRedirectDone, address, userGroups.length]);
 
+  // Effect to handle navigation to create group via custom event
   useEffect(() => {
     const handleNavigateToCreate = () => {
       setActiveTab("create")
@@ -657,6 +653,7 @@ export default function HomePage() {
     return () => window.removeEventListener("navigateToCreate", handleNavigateToCreate)
   }, [])
 
+  // Features for the home page
   const features = [
     {
       icon: <Users className="h-8 w-8" />,
@@ -680,6 +677,7 @@ export default function HomePage() {
     },
   ]
 
+  // How it works steps for the home page
   const howItWorks = [
     {
       step: "01",
@@ -703,6 +701,7 @@ export default function HomePage() {
     },
   ]
 
+  // Scroll to contribution section or connect wallet
   const scrollToContribution = () => {
     if (isConnected) {
       setActiveTab("create")
@@ -715,9 +714,10 @@ export default function HomePage() {
     }
   }
 
-  const handleGroupCreated = async (groupId: string, txHash: `0x${string}`, contractData: any) => {
-    console.log("🎉 Group created successfully! Navigating to dashboard...")
-    
+  // Handle success callback from SmartContractIntegration
+  const handleGroupCreatedFromContract = async (groupId: string, txHash: `0x${string}`, contractData: any) => {
+    console.log("🎉 Group created successfully via contract! Navigating to dashboard...")
+
     const parsedContributionAmount = Number.parseFloat(contributionAmount)
 
     // Calculate end date from withdrawal date or duration
@@ -741,18 +741,18 @@ export default function HomePage() {
           .split("T")[0]
       : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
 
-    const newGroup = {
-      id: groupId,
+    const newGroup: SavingsGroup = {
+      id: groupId, // Use groupId from contract creation
       name: teamName || "Unnamed Group",
       description: groupDescription || "No description provided.",
       creator: address || "",
       contributionAmount: parsedContributionAmount,
-      currentAmount: parsedContributionAmount,
-      targetAmount: parsedContributionAmount * 10,
+      currentAmount: parsedContributionAmount, // Initial amount in contract
+      targetAmount: parsedContributionAmount * 10, // Assuming 10 members for target
       goal: groupDescription || "No description provided.",
       duration: duration,
       endDate: endDate,
-      withdrawalDate: contractData.withdrawalDate,
+      withdrawalDate: contractData.withdrawalDate, // From contract
       dueDay: dueDay,
       isActive: true,
       status: "active",
@@ -767,17 +767,17 @@ export default function HomePage() {
         },
       ],
       nextContribution: nextContributionDate,
-      greenfieldObjectId: contractData.greenfieldObjectId,
-      greenfieldMetadataHash: contractData.greenfieldMetadataHash,
-      txHash: txHash, // Pass transaction hash for blockchain data
+      greenfieldObjectId: contractData.greenfieldObjectId, // From contract
+      greenfieldMetadataHash: contractData.greenfieldMetadataHash, // From contract
+      txHash: txHash, // Pass transaction hash
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
 
     try {
-      // Save to Greenfield first
+      // Save to Greenfield after successful contract creation
       await saveGroup(newGroup);
-      
+
       // Show success toast with more details
       toast({
         title: "🎉 Payment Confirmed & Group Created!",
@@ -785,23 +785,14 @@ export default function HomePage() {
         duration: 6000,
       })
 
-      // Navigate to dashboard immediately after payment confirmation
-    setActiveTab("dashboard")
-      
+      // Navigate to dashboard immediately
+      setActiveTab("dashboard");
+
       // Scroll to top of dashboard
       setTimeout(() => {
-        window.scrollTo({ top: 0, behavior: "smooth" })
-      }, 100)
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }, 100);
 
-    // Clear form fields
-    setTeamName("")
-    setGroupDescription("")
-    setContributionAmount("")
-    setDuration("")
-    setWithdrawalDate("")
-    setDueDay("")
-
-      console.log("✅ Successfully navigated to dashboard after payment confirmation");
     } catch (error) {
       console.error("❌ Error in group creation flow:", error);
       toast({
@@ -809,98 +800,150 @@ export default function HomePage() {
         description: "Group was created on blockchain but there was an issue saving to BNB Greenfield. Please refresh the page.",
         duration: 8000,
       });
-      
+
       // Still navigate to dashboard even if Greenfield save fails
-      setActiveTab("dashboard")
+      setActiveTab("dashboard");
     }
   }
 
-  const handleDeleteGroup = async (groupId: string) => {
-    try {
-      // Delete from hybrid storage
-      const response = await fetch(`/api/groups/delete/${groupId}`, {
-        method: 'DELETE',
+  // Handle joining a group via invite code
+  const joinGroupByInviteCode = async (inviteCode: string) => {
+    if (!isConnected || !address) {
+      toast({
+        title: "❌ Wallet Not Connected",
+        description: "Please connect your wallet to join a group",
+        variant: "destructive"
       });
-      const result = await response.json();
+      return;
+    }
 
-      if (result.success) {
-        console.log("✅ Group deleted from Greenfield successfully:", groupId);
-        // Reload groups after deletion
-        const groups = await fetch('/api/groups').then(res => res.json()).then(data => data.groups);
-        
-        // Filter groups where the current user is either creator or member
-        const userGroups = groups.filter((group: any) => {
-          const isCreator = group.creator?.toLowerCase() === address?.toLowerCase();
-          const isMember = group.members?.some((member: any) => 
-            member.address?.toLowerCase() === address?.toLowerCase()
-          );
-          return isCreator || isMember;
+    if (!inviteCode) {
+      toast({
+        title: "❌ Invite Code Required",
+        description: "Please enter a valid invite code",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/groups/join?invite_code=${inviteCode}&address=${address}`);
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        toast({
+          title: "✅ Group Joined",
+          description: `You've successfully joined ${data.group.name}`,
         });
 
-        const formattedGroups: SavingsGroup[] = userGroups.map((group: any) => ({
+        // Refresh groups to include the newly joined group
+        const { hybridStorageService } = await import('@/lib/hybrid-storage');
+        const allGroups = await hybridStorageService.loadGroups(address);
+
+        const formattedGroups: SavingsGroup[] = allGroups.map((group: any) => ({
           id: group.id,
           name: group.name || "Unnamed Group",
           goal: group.description || group.goal || "No description",
           targetAmount: group.targetAmount || 0,
           currentAmount: group.currentAmount || 0,
-          contributionAmount: (group.targetAmount || 0) / 10,
+          contributionAmount: group.contributionAmount || 0,
           duration: group.duration,
-          endDate: group.endDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-          members: group.members ? group.members.map((member: any) => ({
-            address: member.address,
-            nickname: member.nickname || "Member",
-            contributed: member.contributed || 0,
-            auraPoints: member.auraPoints || 0,
-            status: member.status || "active"
-          })) : [],
+          endDate: group.endDate || "unknown",
+          members: group.members || [],
           status: group.status || "active",
-          nextContribution: group.nextContribution || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-          createdBy: group.createdBy || group.creator || "",
-          createdAt: group.createdAt || new Date().toISOString(),
-          isActive: group.isActive !== undefined ? group.isActive : true,
+          nextContribution: group.nextContribution || "unknown",
+          createdBy: group.createdBy || "unknown",
+          isActive: group.isActive !== false,
         }));
-        
+
         setUserGroups(formattedGroups);
+        setActiveTab("dashboard");
       } else {
-        console.error("Failed to delete group from Greenfield:", result.error);
+        toast({
+          title: "❌ Failed to Join Group",
+          description: data.error || "Invalid invite code or you're already a member",
+          variant: "destructive"
+        });
       }
     } catch (error) {
-      console.error("Error deleting group from Greenfield:", error);
+      console.error("Error joining group:", error);
+      toast({
+        title: "❌ Error",
+        description: "Could not join the group. Please try again.",
+        variant: "destructive"
+      });
     }
   }
 
-  const handleContribution = async (groupId: string, amount: number) => {
-    setIsContributing(true)
+  // Calculate Aura Points based on user's contributions (simplified mechanism)
+  useEffect(() => {
+    if (isConnected && address && userGroups.length > 0) {
+      let totalAuraPoints = 0
+
+      userGroups.forEach(group => {
+        // Find user's contribution in this group
+        const userMember = group.members.find(member => 
+          member.address.toLowerCase() === address.toLowerCase()
+        )
+
+        if (userMember) {
+          // Each payment gets 10 Aura Points
+          const payments = Math.floor(userMember.contributed / group.contributionAmount)
+          totalAuraPoints += payments * 10
+
+          // Early payments (first 3 members) get 5 extra points
+          if (group.members.indexOf(userMember) < 3) {
+            totalAuraPoints += 5
+          }
+        }
+      })
+
+      setUserAuraPoints(totalAuraPoints)
+      console.log("💫 Calculated Aura Points:", totalAuraPoints)
+    }
+  }, [isConnected, address, userGroups])
+
+  // Function to verify admin access
+  const verifyAdminAccess = async () => {
+    if (!adminApiKey) {
+      toast({
+        title: "❌ API Key Required",
+        description: "Please enter an admin API key",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
-      // Simulate smart contract contribution
-      console.log(`Contributing ${amount} BNB to group ${groupId}`)
+      // Use the actual admin API key from environment if available, otherwise placeholder
+      const apiKeyToUse = process.env.ADMIN_API_KEY || adminApiKey; 
+      const response = await fetch(`/api/admin/groups?admin_key=${apiKeyToUse}`);
 
-      // Update the group's current amount
-      setUserGroups((prevGroups) =>
-        prevGroups.map((group) =>
-          group.id === groupId
-            ? {
-                ...group,
-                currentAmount: group.currentAmount + amount,
-                nextContribution: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0], // Next month
-              }
-            : group,
-        ),
-      )
-
-      alert(`Successfully contributed ${amount} BNB to the group!`)
+      if (response.ok) {
+        setIsAdmin(true);
+        toast({
+          title: "✅ Admin Access Granted",
+          description: "You now have access to all group data",
+        });
+      } else {
+        toast({
+          title: "❌ Access Denied",
+          description: "Invalid admin API key",
+          variant: "destructive"
+        });
+      }
     } catch (error) {
-      console.error("Contribution failed:", error)
-      alert("Contribution failed. Please try again.")
-    } finally {
-      setIsContributing(false)
+      console.error("Error verifying admin access:", error);
+      toast({
+        title: "❌ Verification Error",
+        description: "Could not verify admin access",
+        variant: "destructive"
+      });
     }
   }
 
   return (
     <div className="min-h-screen bg-concordia-dark-blue relative">
-      {" "}
-      {/* Added relative for SparkleBackground positioning */}
       <SparkleBackground /> {/* Add the sparkle background here */}
       {/* Navigation */}
       <nav className="border-b border-concordia-light-purple/20 bg-concordia-dark-blue/95 backdrop-blur-sm sticky top-0 z-50">
@@ -1203,7 +1246,7 @@ export default function HomePage() {
                   Your groups are securely stored on the blockchain and can be accessed from any device by connecting the same wallet.
                 </p>
               </div>
-              
+
               {/* Join Group by Invite Code */}
               <div className="mb-4 p-4 bg-concordia-dark-purple/50 border border-concordia-light-purple/30 rounded-lg">
                 <h3 className="text-white font-semibold mb-3 flex items-center">
@@ -1428,8 +1471,9 @@ export default function HomePage() {
                       duration={duration}
                       withdrawalDate={withdrawalDate}
                       dueDay={dueDay}
-                      onSuccess={handleGroupCreated}
-                      onDeleteSuccess={(groupId, txHash) => handleDeleteGroup(groupId)}
+                      onSuccess={handleGroupCreatedFromContract} // Use the contract success handler
+                      // Provide a dummy onDeleteSuccess or handle it if the contract handles deletion
+                      onDeleteSuccess={(groupId, txHash) => console.log("Contract deletion handled elsewhere")} 
                     />
                   </CardContent>
                 </Card>
@@ -1460,8 +1504,8 @@ export default function HomePage() {
                   <Shield className="mr-2 h-6 w-6 text-concordia-pink" />
                   Admin Dashboard
                 </h2>
-                
-                {/* Check if user is admin based on address */}
+
+                {/* Admin Access Input */}
                 <div className="mb-6">
                   <Card className="bg-concordia-purple/20 border-concordia-light-purple/30">
                     <CardContent className="p-6">
@@ -1474,7 +1518,7 @@ export default function HomePage() {
                         </div>
                         <div className="flex items-center gap-2">
                           <Input
-                            type="password"
+                            type="password" // Use password type for API key
                             placeholder="Enter admin API key"
                             value={adminApiKey}
                             onChange={(e) => setAdminApiKey(e.target.value)}
@@ -1483,7 +1527,7 @@ export default function HomePage() {
                           <Button
                             onClick={() => verifyAdminAccess()}
                             className="bg-concordia-pink hover:bg-concordia-pink/80"
-                            disabled={!adminApiKey}
+                            disabled={!adminApiKey} // Disable if no key entered
                           >
                             Verify
                           </Button>
@@ -1492,13 +1536,21 @@ export default function HomePage() {
                     </CardContent>
                   </Card>
                 </div>
-                
-                {/* Admin Dashboard Component */}
-                <AdminDashboard 
-                  isAdmin={isAdmin} 
-                  adminApiKey={adminApiKey} 
-                  onVerify={verifyAdminAccess}
-                />
+
+                {/* Admin Dashboard Component - Rendered only if isAdmin is true */}
+                {isAdmin ? (
+                  <AdminDashboard adminApiKey={adminApiKey} />
+                ) : (
+                  <Card className="bg-concordia-dark-blue/80 border-concordia-light-purple/30 backdrop-blur-sm p-6 text-center">
+                    <CardContent>
+                      <Shield className="h-12 w-12 text-concordia-pink mx-auto mb-4" />
+                      <h3 className="text-xl font-semibold text-white mb-2">Admin Access Required</h3>
+                      <p className="text-white/70">
+                        Please enter a valid admin API key and verify to access the admin dashboard.
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
             </ClientOnly>
           </TabsContent>
@@ -1595,10 +1647,10 @@ export default function HomePage() {
           </div>
         </div>
       </footer>
-      
+
       {/* Toast notifications */}
       <Toaster />
-      
+
       {/* Join Group Modal */}
       <JoinGroupModal
         isOpen={joinGroupModalOpen}

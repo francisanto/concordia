@@ -84,6 +84,21 @@ export async function GET(request: Request) {
         return isCreator || isMember
       })
       console.log('🔒 Filtered groups for user access:', accessibleGroups.length)
+      
+      // Store user data in database for admin tracking
+      if (accessibleGroups.length > 0) {
+        try {
+          const userStats = accessibleGroups.reduce((acc, group) => ({
+            totalContributed: acc.totalContributed + (group.currentAmount || 0),
+            totalAura: acc.totalAura + (group.members?.find((m: any) => m.address?.toLowerCase() === userAddress)?.auraPoints || 0)
+          }), { totalContributed: 0, totalAura: 0 })
+          
+          // This would be stored in admin database but not exposed to regular users
+          console.log('📊 User stats calculated for admin:', userStats)
+        } catch (error) {
+          console.log('⚠️ Error calculating user stats:', error)
+        }
+      }
     } else if (isAdmin) {
       console.log('👑 Admin access granted - returning all groups')
     } else {
