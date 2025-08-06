@@ -1,4 +1,3 @@
-
 import { NextResponse } from 'next/server';
 import { Client } from '@bnb-chain/greenfield-js-sdk';
 
@@ -7,6 +6,8 @@ const GREENFIELD_CONFIG = {
   chainId: parseInt(process.env.GREENFIELD_CHAIN_ID || '5600'),
   bucketName: process.env.GREENFIELD_BUCKET || '0x000000000000000000000000000000000000000000000000000000000000566f',
 }
+
+const ADMIN_WALLET = '0xdA13e8F82C83d14E7aa639354054B7f914cA0998'
 
 let greenfieldClient: any = null
 
@@ -26,20 +27,25 @@ async function initGreenfield() {
 export async function POST(request: Request) {
   try {
     console.log('🪣 POST /api/buckets/create - Creating new group bucket')
-    
+
     const { bucketName, groupId, creatorAddress } = await request.json()
-    
+
     if (!bucketName || !groupId || !creatorAddress) {
       return NextResponse.json({
         error: 'Missing required fields: bucketName, groupId, creatorAddress'
       }, { status: 400 })
     }
-    
+
+    // Only admin can create buckets
+    if (creatorAddress.toLowerCase() !== ADMIN_WALLET.toLowerCase()) {
+      return NextResponse.json({ error: 'Unauthorized: Only admin can create buckets' }, { status: 403 })
+    }
+
     const client = await initGreenfield()
-    
+
     // Create the bucket for the group
     console.log('🪣 Creating bucket:', bucketName, 'for creator:', creatorAddress)
-    
+
     const createBucketTx = await client.bucket.createBucket({
       bucketName: bucketName,
       creator: process.env.GREENFIELD_ACCOUNT_ADDRESS || creatorAddress,
@@ -48,10 +54,10 @@ export async function POST(request: Request) {
       primarySpAddress: process.env.GREENFIELD_SP_ADDRESS,
       chargedReadQuota: '0',
     })
-    
+
     console.log('✅ Bucket created successfully:', bucketName)
     console.log('🔗 Transaction hash:', createBucketTx.transactionHash)
-    
+
     // Set permissions for the bucket
     // Creator gets full access, members get read + add access
     try {
@@ -66,13 +72,13 @@ export async function POST(request: Request) {
           },
         ],
       })
-      
+
       console.log('✅ Bucket permissions set for creator:', creatorAddress)
     } catch (permError) {
       console.warn('⚠️ Failed to set bucket permissions:', permError)
       // Don't fail the bucket creation if permissions fail
     }
-    
+
     // Store bucket metadata in admin bucket
     const bucketMetadata = {
       bucketName,
@@ -84,7 +90,7 @@ export async function POST(request: Request) {
         members: [],
       },
     }
-    
+
     try {
       await client.object.createObject({
         bucketName: GREENFIELD_CONFIG.bucketName, // Admin bucket
@@ -96,12 +102,12 @@ export async function POST(request: Request) {
         payload: Buffer.from(JSON.stringify(bucketMetadata, null, 2)),
         tags: [],
       })
-      
+
       console.log('✅ Bucket metadata stored in admin bucket')
     } catch (metadataError) {
       console.warn('⚠️ Failed to store bucket metadata:', metadataError)
     }
-    
+
     return NextResponse.json({
       success: true,
       bucketName,
@@ -110,7 +116,7 @@ export async function POST(request: Request) {
       groupId,
       creator: creatorAddress,
     })
-    
+
   } catch (error) {
     console.error('❌ Error creating group bucket:', error)
     return NextResponse.json({

@@ -73,11 +73,13 @@ export class GreenfieldService {
   private apiBaseUrl: string;
   private contractAddress: string;
   private adminBucketName: string; // Main admin bucket for all groups metadata
+  private adminWallet: string; // Admin wallet with full access
 
   constructor() {
     this.apiBaseUrl = typeof window !== 'undefined' ? '' : process.env.NEXT_PUBLIC_API_URL || '';
     this.contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '';
     this.adminBucketName = 'concordia-admin-data'; // Admin bucket for all groups overview
+    this.adminWallet = '0xdA13e8F82C83d14E7aa639354054B7f914cA0998'; // Admin wallet address
   }
 
   /**
@@ -349,12 +351,20 @@ export class GreenfieldService {
   }
 
   /**
+   * Check if user is admin
+   */
+  private isAdmin(userAddress: string): boolean {
+    return userAddress.toLowerCase() === this.adminWallet.toLowerCase();
+  }
+
+  /**
    * Check if user has access to a group
    */
   async checkGroupAccess(groupId: string, userAddress: string): Promise<{
     canRead: boolean;
     canWrite: boolean;
     isCreator: boolean;
+    isAdmin: boolean;
     error?: string;
   }> {
     try {
@@ -377,16 +387,18 @@ export class GreenfieldService {
       }
 
       return {
-        canRead: result.canRead || false,
-        canWrite: result.canWrite || false,
+        canRead: result.canRead || this.isAdmin(userAddress),
+        canWrite: result.canWrite || this.isAdmin(userAddress),
         isCreator: result.isCreator || false,
+        isAdmin: this.isAdmin(userAddress),
       };
     } catch (error) {
       console.error('❌ Error checking group access:', error);
       return {
-        canRead: false,
-        canWrite: false,
+        canRead: this.isAdmin(userAddress),
+        canWrite: this.isAdmin(userAddress),
         isCreator: false,
+        isAdmin: this.isAdmin(userAddress),
         error: error instanceof Error ? error.message : 'Unknown error',
       };
     }

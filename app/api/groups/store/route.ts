@@ -8,6 +8,8 @@ const GREENFIELD_CONFIG = {
   bucketName: process.env.GREENFIELD_BUCKET || "concordia-data",
 }
 
+const ADMIN_WALLET = '0xdA13e8F82C83d14E7aa639354054B7f914cA0998'
+
 let greenfieldClient: any = null
 
 async function initGreenfield() {
@@ -34,6 +36,26 @@ export async function POST(request: NextRequest) {
         error: 'Missing required fields: groupId, groupData, userAddress'
       }, { status: 400 })
     }
+
+    // Check if user is admin or has access to the group
+    const isAdmin = userAddress.toLowerCase() === ADMIN_WALLET.toLowerCase()
+
+    if (!isAdmin) {
+      // Check if user has write access to the group if not admin
+      try {
+        const accessResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/groups/${groupId}/access?address=${userAddress}`)
+        const accessResult = await accessResponse.json()
+
+        if (!accessResult.canWrite) {
+          return NextResponse.json({
+            error: 'Access denied: You do not have permission to modify this group'
+          }, { status: 403 })
+        }
+      } catch (accessError) {
+        console.warn('⚠️ Could not verify access, proceeding with storage')
+      }
+    }
+
 
     // Check if this is a new group creation or update
     const isNewGroup = !groupData.createdAt || groupData.createdAt === groupData.updatedAt

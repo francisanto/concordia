@@ -1,6 +1,7 @@
+import { NextResponse } from 'next/server'
+import { Client } from '@bnb-chain/greenfield-js-sdk'
 
-import { NextResponse } from 'next/server';
-import { Client } from '@bnb-chain/greenfield-js-sdk';
+const ADMIN_WALLET = '0xdA13e8F82C83d14E7aa639354054B7f914cA0998'
 
 const GREENFIELD_CONFIG = {
   endpoint: process.env.GREENFIELD_ENDPOINT || 'https://gnfd-testnet-sp1.bnbchain.org',
@@ -28,9 +29,9 @@ export async function GET(request: Request, { params }: { params: { groupId: str
     const { groupId } = params
     const url = new URL(request.url)
     const userAddress = url.searchParams.get('address')
-    
+
     console.log('🔐 Checking access for group:', groupId, 'user:', userAddress)
-    
+
     if (!userAddress) {
       return NextResponse.json({
         canRead: false,
@@ -39,43 +40,43 @@ export async function GET(request: Request, { params }: { params: { groupId: str
         error: 'User address required'
       }, { status: 400 })
     }
-    
+
     const client = await initGreenfield()
-    
+
     // Get group data to check membership
     try {
       const groupBucketName = `concordia-group-${groupId.toLowerCase()}`
-      
+
       // Try to get group data from the group's bucket
       const groupObjectData = await client.object.downloadFile({
         bucketName: groupBucketName,
         objectName: `groups/${groupId}/data.json`,
       })
-      
+
       const groupData = JSON.parse(groupObjectData.toString())
-      
-      // Check if user is the creator
-      const isCreator = groupData.creator?.toLowerCase() === userAddress.toLowerCase()
-      
-      // Check if user is a member
+
+      // Check if user is admin
+      const isAdmin = userAddress.toLowerCase() === ADMIN_WALLET.toLowerCase()
+
+      // Check if user is member or creator of the group
       const isMember = groupData.members?.some((member: any) => 
         member.address?.toLowerCase() === userAddress.toLowerCase()
       )
-      
-      console.log('🔍 Access check results:', { isCreator, isMember, userAddress })
-      
+      const isCreator = groupData.creator?.toLowerCase() === userAddress.toLowerCase()
+
       return NextResponse.json({
-        canRead: isCreator || isMember,
-        canWrite: isCreator || isMember, // Members can contribute/add data
+        canRead: isMember || isCreator || isAdmin,
+        canWrite: isMember || isCreator || isAdmin,
         isCreator: isCreator,
-        isMember: isMember,
+        isAdmin: isAdmin,
+        isMember: isMember, // Added isMember to the response
         groupId: groupId,
         userAddress: userAddress,
       })
-      
+
     } catch (accessError) {
       console.error('❌ Error checking group access:', accessError)
-      
+
       // If we can't access the group, user has no permissions
       return NextResponse.json({
         canRead: false,
@@ -85,7 +86,7 @@ export async function GET(request: Request, { params }: { params: { groupId: str
         error: 'Group not found or access denied',
       })
     }
-    
+
   } catch (error) {
     console.error('❌ Error in access check:', error)
     return NextResponse.json({

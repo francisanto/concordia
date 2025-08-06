@@ -12,7 +12,7 @@ import { Target, Plus, Copy, Trash2, Calendar, Crown, Users } from "lucide-react
 import { useAccount, useWriteContract, useReadContract } from "wagmi"
 import { GroupDetailsModal } from "./group-details-modal"
 import { InviteMemberModal } from "./invite-member-modal"
-import { JoinGroupModal } from "./join-group-modal"
+
 import { ContributionModal } from "./contribution-modal"
 import { DueDateManager } from "./due-date-manager"
 import { useGroupRole } from "./iam-access-control"
@@ -78,7 +78,7 @@ export function GroupDashboard({
   const [selectedGroupForContribution, setSelectedGroupForContribution] = useState<SavingsGroup | null>(null)
   const [dueDateModalOpen, setDueDateModalOpen] = useState(false)
   const [selectedGroupForDueDate, setSelectedGroupForDueDate] = useState<SavingsGroup | null>(null)
-  const [joinGroupModalOpen, setJoinGroupModalOpen] = useState(false)
+  
 
   const handleContribute = (groupId: string) => {
     const group = groups.find((g) => g.id === groupId)
@@ -252,29 +252,8 @@ export function GroupDashboard({
                 <Target className="h-12 w-12 text-concordia-pink mx-auto mb-4" />
                 <h3 className="text-white text-xl font-semibold mb-2">No Active Savings Groups</h3>
                 <p className="text-white/70 mb-6">
-                  You haven't created or joined any savings groups yet. Start one to achieve your goals!
+                  You haven't joined any savings groups yet. Your groups will appear here once you're added to them.
                 </p>
-                <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <Button
-                    size="lg"
-                    onClick={() => {
-                      window.dispatchEvent(new CustomEvent("navigateToCreate"))
-                    }}
-                    className="bg-gradient-to-r from-concordia-pink to-concordia-light-purple hover:from-concordia-pink/80 hover:to-concordia-light-purple/80 text-white font-semibold shadow-lg"
-                  >
-                    <Plus className="h-5 w-5 mr-2" />
-                    Create Your First Group
-                  </Button>
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    onClick={() => setJoinGroupModalOpen(true)}
-                    className="border-concordia-light-purple text-concordia-light-purple hover:bg-concordia-light-purple/10 bg-transparent font-semibold"
-                  >
-                    <Users className="h-5 w-5 mr-2" />
-                    Join Existing Group
-                  </Button>
-                </div>
               </CardContent>
             </Card>
           ) : (
@@ -295,26 +274,7 @@ export function GroupDashboard({
             </div>
           )}
 
-          {/* Create New Group CTA */}
-          {groups.length > 0 && (
-            <Card className="bg-gradient-to-r from-concordia-pink/10 to-concordia-light-purple/10 border-concordia-pink/30 backdrop-blur-sm">
-              <CardContent className="p-8 text-center">
-                <Target className="h-12 w-12 text-concordia-pink mx-auto mb-4" />
-                <h3 className="text-white text-xl font-semibold mb-2">Ready for Another Goal?</h3>
-                <p className="text-white/70 mb-6">Create a new savings group and invite your friends to join</p>
-                <Button
-                  size="lg"
-                  className="bg-gradient-to-r from-[#F042FF] to-[#7226FF] hover:from-[#F042FF]/90 hover:to-[#7226FF]/90 text-white font-semibold shadow-lg"
-                  onClick={() => {
-                    window.dispatchEvent(new CustomEvent("navigateToCreate"))
-                  }}
-                >
-                  <Plus className="h-5 w-5 mr-2" />
-                  Create New Group
-                </Button>
-              </CardContent>
-            </Card>
-          )}
+          
 
           {/* Modals */}
           <GroupDetailsModal
@@ -354,14 +314,7 @@ export function GroupDashboard({
             group={selectedGroupForDueDate}
             onUpdate={handleDueDateUpdate}
           />
-          <JoinGroupModal
-            isOpen={joinGroupModalOpen}
-            onClose={() => setJoinGroupModalOpen(false)}
-            onJoinSuccess={(groupId, groupName) => {
-              console.log(`Successfully joined group: ${groupName} (${groupId})`)
-              // Refresh groups or handle the join success
-            }}
-          />
+          
         </>
       )}
     </div>

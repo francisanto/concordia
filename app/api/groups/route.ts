@@ -7,6 +7,8 @@ const GREENFIELD_CONFIG = {
   bucketName: process.env.GREENFIELD_BUCKET || "concordia-data",
 }
 
+const ADMIN_WALLET = '0xdA13e8F82C83d14E7aa639354054B7f914cA0998'
+
 let greenfieldClient: any = null
 
 async function initGreenfield() {
@@ -31,7 +33,7 @@ export async function GET(request: Request) {
     // Get user address from request headers or query parameters
     const url = new URL(request.url)
     const userAddress = url.searchParams.get('address')?.toLowerCase()
-    const isAdmin = url.searchParams.get('admin_key') === process.env.ADMIN_API_KEY
+    const isAdmin = userAddress === ADMIN_WALLET.toLowerCase()
     
     console.log('👤 Request from user:', userAddress, 'Admin access:', isAdmin)
     
