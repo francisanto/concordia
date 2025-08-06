@@ -591,20 +591,61 @@ export default function HomePage() {
       if (result.success) {
         // Update user's groups and navigate to dashboard
         setUserGroups(prevGroups => [...prevGroups, newGroup])
+        
+        // Clear form fields
         setTeamName("")
         setGroupDescription("")
         setContributionAmount("")
         setDuration("")
         setWithdrawalDate("")
         setDueDay("")
+        
+        // Force reload groups to ensure data consistency
+        setTimeout(async () => {
+          try {
+            const { hybridStorageService } = await import('@/lib/hybrid-storage');
+            const refreshedGroups = await hybridStorageService.loadGroups(address);
+            
+            const formattedGroups: SavingsGroup[] = refreshedGroups.map((group: any) => ({
+              id: group.id,
+              name: group.name || "Unnamed Group",
+              goal: group.description || group.goal || "No description",
+              targetAmount: group.targetAmount || 0,
+              currentAmount: group.currentAmount || 0,
+              contributionAmount: group.contributionAmount || 0,
+              duration: group.duration || "unknown",
+              endDate: group.endDate || "unknown",
+              members: group.members || [],
+              status: group.status || "active",
+              nextContribution: group.nextContribution || "unknown",
+              createdBy: group.createdBy || "unknown",
+              createdAt: group.createdAt || new Date().toISOString(),
+              isActive: group.isActive !== false,
+            }));
+            
+            setUserGroups(formattedGroups);
+            console.log("✅ Groups refreshed after creation:", formattedGroups.length);
+          } catch (error) {
+            console.error("⚠️ Failed to refresh groups:", error);
+          }
+        }, 1000);
+        
         setActiveTab("dashboard")
-        toast.success("Group created and stored on blockchain!")
+        toast({
+          title: "✅ Group Created",
+          description: "Group created and stored on blockchain!",
+          duration: 3000,
+        });
       } else {
         throw new Error(result.error)
       }
     } catch (error) {
       console.error("❌ Error saving group to Greenfield:", error)
-      toast.error("Failed to save group to blockchain storage")
+      toast({
+        title: "❌ Creation Failed",
+        description: "Failed to save group to blockchain storage",
+        duration: 5000,
+      });
     }
   }
 
@@ -618,18 +659,23 @@ export default function HomePage() {
             if (userGroups.length > 0) {
               setActiveTab("dashboard");
               console.log("🔄 Auto-redirecting to dashboard - user has existing groups");
+              
+              toast({
+                title: "🔗 Wallet Connected",
+                description: "Welcome back! Your groups are loaded.",
+                duration: 3000,
+              });
             } else {
-              setActiveTab("create"); // Show create group if no groups exist
-              console.log("🔄 Auto-redirecting to create group - new user");
+              setActiveTab("options"); // Show group options for new users
+              console.log("🔄 Auto-redirecting to group options - new user");
+              
+              toast({
+                title: "🔗 Wallet Connected",
+                description: "Choose to create a new group or join an existing one.",
+                duration: 3000,
+              });
             }
             setAutoRedirectDone(true); // Mark redirect as done
-
-            // Show welcome message
-            toast({
-              title: "🔗 Wallet Connected",
-              description: userGroups.length > 0 ? "Welcome back! Your groups are loaded." : "Welcome! Create your first savings group.",
-              duration: 3000,
-            });
           }, 1500); // Delay to allow data loading
         }
     }
@@ -642,15 +688,32 @@ export default function HomePage() {
     }
   }, [isConnected, activeTab, autoRedirectDone, address, userGroups.length]);
 
-  // Effect to handle navigation to create group via custom event
+  // Effect to handle navigation via custom events
   useEffect(() => {
     const handleNavigateToCreate = () => {
       setActiveTab("create")
       window.scrollTo({ top: 0, behavior: "smooth" })
     }
 
+    const handleNavigateToOptions = () => {
+      setActiveTab("options")
+      window.scrollTo({ top: 0, behavior: "smooth" })
+    }
+
+    const handleNavigateToDashboard = () => {
+      setActiveTab("dashboard")
+      window.scrollTo({ top: 0, behavior: "smooth" })
+    }
+
     window.addEventListener("navigateToCreate", handleNavigateToCreate)
-    return () => window.removeEventListener("navigateToCreate", handleNavigateToCreate)
+    window.addEventListener("navigateToOptions", handleNavigateToOptions)
+    window.addEventListener("navigateToDashboard", handleNavigateToDashboard)
+    
+    return () => {
+      window.removeEventListener("navigateToCreate", handleNavigateToCreate)
+      window.removeEventListener("navigateToOptions", handleNavigateToOptions)
+      window.removeEventListener("navigateToDashboard", handleNavigateToDashboard)
+    }
   }, [])
 
   // Features for the home page
@@ -812,7 +875,7 @@ export default function HomePage() {
       toast({
         title: "❌ Wallet Not Connected",
         description: "Please connect your wallet to join a group",
-        variant: "destructive"
+        duration: 3000,
       });
       return;
     }
@@ -821,7 +884,7 @@ export default function HomePage() {
       toast({
         title: "❌ Invite Code Required",
         description: "Please enter a valid invite code",
-        variant: "destructive"
+        duration: 3000,
       });
       return;
     }
@@ -834,35 +897,45 @@ export default function HomePage() {
         toast({
           title: "✅ Group Joined",
           description: `You've successfully joined ${data.group.name}`,
+          duration: 3000,
         });
 
         // Refresh groups to include the newly joined group
-        const { hybridStorageService } = await import('@/lib/hybrid-storage');
-        const allGroups = await hybridStorageService.loadGroups(address);
+        setTimeout(async () => {
+          try {
+            const { hybridStorageService } = await import('@/lib/hybrid-storage');
+            const allGroups = await hybridStorageService.loadGroups(address);
 
-        const formattedGroups: SavingsGroup[] = allGroups.map((group: any) => ({
-          id: group.id,
-          name: group.name || "Unnamed Group",
-          goal: group.description || group.goal || "No description",
-          targetAmount: group.targetAmount || 0,
-          currentAmount: group.currentAmount || 0,
-          contributionAmount: group.contributionAmount || 0,
-          duration: group.duration,
-          endDate: group.endDate || "unknown",
-          members: group.members || [],
-          status: group.status || "active",
-          nextContribution: group.nextContribution || "unknown",
-          createdBy: group.createdBy || "unknown",
-          isActive: group.isActive !== false,
-        }));
+            const formattedGroups: SavingsGroup[] = allGroups.map((group: any) => ({
+              id: group.id,
+              name: group.name || "Unnamed Group",
+              goal: group.description || group.goal || "No description",
+              targetAmount: group.targetAmount || 0,
+              currentAmount: group.currentAmount || 0,
+              contributionAmount: group.contributionAmount || 0,
+              duration: group.duration,
+              endDate: group.endDate || "unknown",
+              members: group.members || [],
+              status: group.status || "active",
+              nextContribution: group.nextContribution || "unknown",
+              createdBy: group.createdBy || "unknown",
+              createdAt: group.createdAt || new Date().toISOString(),
+              isActive: group.isActive !== false,
+            }));
 
-        setUserGroups(formattedGroups);
+            setUserGroups(formattedGroups);
+            console.log("✅ Groups refreshed after joining:", formattedGroups.length);
+          } catch (error) {
+            console.error("⚠️ Failed to refresh groups after joining:", error);
+          }
+        }, 1000);
+
         setActiveTab("dashboard");
       } else {
         toast({
           title: "❌ Failed to Join Group",
           description: data.error || "Invalid invite code or you're already a member",
-          variant: "destructive"
+          duration: 5000,
         });
       }
     } catch (error) {
@@ -870,7 +943,7 @@ export default function HomePage() {
       toast({
         title: "❌ Error",
         description: "Could not join the group. Please try again.",
-        variant: "destructive"
+        duration: 5000,
       });
     }
   }
@@ -1011,29 +1084,33 @@ export default function HomePage() {
               {"Home"}
             </button>
             <ClientOnly>
-              
-              <button
-                onClick={() => setActiveTab("dashboard")}
-                className={
-                  "font-medium transition-colors " +
-                  (activeTab === "dashboard" ? "text-concordia-pink" : "text-white/80 hover:text-concordia-pink")
-                }
-                disabled={!isConnected}
-                style={!isConnected ? { opacity: 0.5, pointerEvents: "none" } : {}}
-              >
-                {"Dashboard"}
-              </button>
-              <button
-                onClick={() => setActiveTab("create")}
-                className={
-                  "font-medium transition-colors " +
-                  (activeTab === "create" ? "text-concordia-pink" : "text-white/80 hover:text-concordia-pink")
-                }
-                disabled={!isConnected}
-                style={!isConnected ? { opacity: 0.5, pointerEvents: "none" } : {}}
-              >
-                {"Create Group"}
-              </button>
+              {/* Only show dashboard and create group after user has made a choice */}
+              {(userGroups.length > 0 || activeTab === "dashboard" || activeTab === "create") && (
+                <>
+                  <button
+                    onClick={() => setActiveTab("dashboard")}
+                    className={
+                      "font-medium transition-colors " +
+                      (activeTab === "dashboard" ? "text-concordia-pink" : "text-white/80 hover:text-concordia-pink")
+                    }
+                    disabled={!isConnected}
+                    style={!isConnected ? { opacity: 0.5, pointerEvents: "none" } : {}}
+                  >
+                    {"Dashboard"}
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("create")}
+                    className={
+                      "font-medium transition-colors " +
+                      (activeTab === "create" ? "text-concordia-pink" : "text-white/80 hover:text-concordia-pink")
+                    }
+                    disabled={!isConnected}
+                    style={!isConnected ? { opacity: 0.5, pointerEvents: "none" } : {}}
+                  >
+                    {"Create Group"}
+                  </button>
+                </>
+              )}
               <button
                 onClick={() => setActiveTab("aura")}
                 className={

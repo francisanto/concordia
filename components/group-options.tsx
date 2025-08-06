@@ -13,6 +13,14 @@ interface GroupOptionsProps {
 }
 
 export function GroupOptions({ onCreateGroup, onJoinGroup }: GroupOptionsProps) {
+  
+  const handleJoinSuccess = (groupId: string, groupName: string) => {
+    console.log(`Successfully joined group: ${groupName} (${groupId})`)
+    // Navigate to dashboard after successful join
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent("navigateToDashboard"))
+    }, 1000)
+  }
   return (
     <div className="space-y-8">
       {/* Header */}
