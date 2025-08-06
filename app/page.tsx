@@ -1474,6 +1474,17 @@ export default function HomePage() {
                           </SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    )
+  }
+                      </Select>
                       <p className="text-sm text-white/60">{"How long funds will be locked in the smart contract"}</p>
                     </div>
 
