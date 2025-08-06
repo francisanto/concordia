@@ -591,7 +591,7 @@ export default function HomePage() {
       if (result.success) {
         // Update user's groups and navigate to dashboard
         setUserGroups(prevGroups => [...prevGroups, newGroup])
-        
+
         // Clear form fields
         setTeamName("")
         setGroupDescription("")
@@ -599,13 +599,13 @@ export default function HomePage() {
         setDuration("")
         setWithdrawalDate("")
         setDueDay("")
-        
+
         // Force reload groups to ensure data consistency
         setTimeout(async () => {
           try {
             const { hybridStorageService } = await import('@/lib/hybrid-storage');
             const refreshedGroups = await hybridStorageService.loadGroups(address);
-            
+
             const formattedGroups: SavingsGroup[] = refreshedGroups.map((group: any) => ({
               id: group.id,
               name: group.name || "Unnamed Group",
@@ -622,14 +622,14 @@ export default function HomePage() {
               createdAt: group.createdAt || new Date().toISOString(),
               isActive: group.isActive !== false,
             }));
-            
+
             setUserGroups(formattedGroups);
             console.log("✅ Groups refreshed after creation:", formattedGroups.length);
           } catch (error) {
             console.error("⚠️ Failed to refresh groups:", error);
           }
         }, 1000);
-        
+
         setActiveTab("dashboard")
         toast({
           title: "✅ Group Created",
@@ -659,7 +659,7 @@ export default function HomePage() {
             if (userGroups.length > 0) {
               setActiveTab("dashboard");
               console.log("🔄 Auto-redirecting to dashboard - user has existing groups");
-              
+
               toast({
                 title: "🔗 Wallet Connected",
                 description: "Welcome back! Your groups are loaded.",
@@ -668,7 +668,7 @@ export default function HomePage() {
             } else {
               setActiveTab("options"); // Show group options for new users
               console.log("🔄 Auto-redirecting to group options - new user");
-              
+
               toast({
                 title: "🔗 Wallet Connected",
                 description: "Choose to create a new group or join an existing one.",
@@ -708,7 +708,7 @@ export default function HomePage() {
     window.addEventListener("navigateToCreate", handleNavigateToCreate)
     window.addEventListener("navigateToOptions", handleNavigateToOptions)
     window.addEventListener("navigateToDashboard", handleNavigateToDashboard)
-    
+
     return () => {
       window.removeEventListener("navigateToCreate", handleNavigateToCreate)
       window.removeEventListener("navigateToOptions", handleNavigateToOptions)
