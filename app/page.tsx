@@ -18,6 +18,8 @@ import { SparkleBackground } from "@/components/sparkle-background"
 import { AuraRewards } from "@/components/aura-rewards"
 import { NFTWalletDisplay } from "@/components/nft-wallet-display"
 import { AdminDashboard } from "@/components/admin-dashboard"
+import { GroupOptions } from "@/components/group-options"
+import { JoinGroupModal } from "@/components/join-group-modal"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 
@@ -185,6 +187,7 @@ export default function HomePage() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [adminApiKey, setAdminApiKey] = useState("")
   const [inviteCode, setInviteCode] = useState("")
+  const [joinGroupModalOpen, setJoinGroupModalOpen] = useState(false)
 
   // Move handleDisconnect inside HomePage
   const handleDisconnect = () => {
@@ -236,62 +239,104 @@ export default function HomePage() {
       try {
         console.log("🔄 Loading groups for wallet:", address);
         
-        // Use the hybrid storage service to load groups with access control
-        const { hybridStorageService } = await import('@/lib/hybrid-storage');
-        const allGroups = await hybridStorageService.loadGroups(address);
-        console.log("📊 All groups from Greenfield:", allGroups.length);
+        // First try localStorage for immediate response
+        const { dataPersistenceService } = await import('@/lib/data-persistence');
+        const localGroups = await dataPersistenceService.loadGroups();
         
-        // Groups are already filtered by the API based on user access
-        console.log("👤 User's groups found:", allGroups.length);
-        
-        // Show toast notification about cross-device access
-        toast({
-          title: "✅ Data Synced",
-          description: "Your groups are securely stored on blockchain and accessible from any device",
+        // Filter groups where user is creator or member
+        const userLocalGroups = localGroups.filter((group: any) => {
+          const isCreator = group.createdBy?.toLowerCase() === address.toLowerCase() || 
+                           group.creator?.toLowerCase() === address.toLowerCase();
+          const isMember = group.members?.some((member: any) => 
+            member.address?.toLowerCase() === address.toLowerCase()
+          );
+          return isCreator || isMember;
         });
 
-        const formattedGroups: SavingsGroup[] = allGroups.map((group: any) => ({
-          id: group.id,
-          name: group.name || "Unnamed Group",
-          goal: group.description || group.goal || "No description",
-          targetAmount: group.targetAmount || 0,
-          currentAmount: group.currentAmount || 0,
-          contributionAmount: (group.targetAmount || 0) / 10,
-          duration: group.duration,
-          endDate: group.endDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-          members: group.members ? group.members.map((member: any) => ({
-            address: member.address,
-            nickname: member.nickname || "Member",
-            contributed: member.contributed || 0,
-            auraPoints: member.auraPoints || 0,
-            status: member.status || "active"
-          })) : [],
-          status: group.status || "active",
-          nextContribution: group.nextContribution || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-          createdBy: group.createdBy || group.creator || "",
-          createdAt: group.createdAt || new Date().toISOString(),
-          isActive: group.isActive !== undefined ? group.isActive : true,
-        }));
+        console.log("📊 Local groups found:", userLocalGroups.length);
         
-        setUserGroups(formattedGroups);
-        console.log("✅ User's groups loaded from Greenfield:", formattedGroups.length);
-        
-        // Show success message if groups were loaded
-        if (formattedGroups.length > 0) {
-          toast({
-            title: "📊 Dashboard Loaded",
-            description: `Found ${formattedGroups.length} group(s) from BNB Greenfield`,
-            duration: 3000,
-          });
+        // Format and set local groups immediately for better UX
+        if (userLocalGroups.length > 0) {
+          const formattedLocalGroups: SavingsGroup[] = userLocalGroups.map((group: any) => ({
+            id: group.id,
+            name: group.name || "Unnamed Group",
+            goal: group.description || group.goal || "No description",
+            targetAmount: group.targetAmount || 0,
+            currentAmount: group.currentAmount || 0,
+            contributionAmount: group.contributionAmount || (group.targetAmount || 0) / 10,
+            duration: group.duration || "unknown",
+            endDate: group.endDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+            members: group.members ? group.members.map((member: any) => ({
+              address: member.address,
+              nickname: member.nickname || "Member",
+              contributed: member.contributed || 0,
+              auraPoints: member.auraPoints || 0,
+              status: member.status || "active"
+            })) : [],
+            status: group.status || "active",
+            nextContribution: group.nextContribution || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+            createdBy: group.createdBy || group.creator || "",
+            createdAt: group.createdAt || new Date().toISOString(),
+            isActive: group.isActive !== undefined ? group.isActive : true,
+          }));
+          
+          setUserGroups(formattedLocalGroups);
+          console.log("✅ Local groups loaded immediately:", formattedLocalGroups.length);
         }
+
+        // Then try to sync with backend/Greenfield if available
+        try {
+          const { hybridStorageService } = await import('@/lib/hybrid-storage');
+          const remoteGroups = await hybridStorageService.loadGroups(address);
+          console.log("📊 Remote groups from Greenfield:", remoteGroups.length);
+          
+          if (remoteGroups.length > 0) {
+            const formattedRemoteGroups: SavingsGroup[] = remoteGroups.map((group: any) => ({
+              id: group.id,
+              name: group.name || "Unnamed Group",
+              goal: group.description || group.goal || "No description",
+              targetAmount: group.targetAmount || 0,
+              currentAmount: group.currentAmount || 0,
+              contributionAmount: group.contributionAmount || (group.targetAmount || 0) / 10,
+              duration: group.duration || "unknown",
+              endDate: group.endDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+              members: group.members ? group.members.map((member: any) => ({
+                address: member.address,
+                nickname: member.nickname || "Member",
+                contributed: member.contributed || 0,
+                auraPoints: member.auraPoints || 0,
+                status: member.status || "active"
+              })) : [],
+              status: group.status || "active",
+              nextContribution: group.nextContribution || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+              createdBy: group.createdBy || group.creator || "",
+              createdAt: group.createdAt || new Date().toISOString(),
+              isActive: group.isActive !== undefined ? group.isActive : true,
+            }));
+            
+            // Merge with local groups (remote takes priority)
+            const mergedGroups = [...formattedRemoteGroups];
+            setUserGroups(mergedGroups);
+            console.log("✅ Remote groups merged:", mergedGroups.length);
+            
+            toast({
+              title: "✅ Data Synced",
+              description: "Your groups are synced across devices",
+              duration: 3000,
+            });
+          }
+        } catch (remoteError) {
+          console.log("⚠️ Remote sync failed, using local data:", remoteError);
+          // Keep using local groups if remote fails
+        }
+        
       } catch (error) {
         console.error("❌ Error loading groups:", error);
-        console.log("🔄 Starting with empty groups list due to error");
         setUserGroups([]);
         
         toast({
-          title: "⚠️ Loading Error",
-          description: "Failed to load groups from BNB Greenfield. Please try refreshing the page.",
+          title: "⚠️ Loading Error", 
+          description: "Failed to load groups. Please try refreshing the page.",
           duration: 5000,
         });
       } finally {
@@ -545,7 +590,7 @@ export default function HomePage() {
     }
   }
   
-  // Auto-switch to create group page when wallet connects
+  // Auto-switch to appropriate page when wallet connects
   useEffect(() => {
     // Only redirect if connected AND auto-redirect hasn't happened yet
     if (isConnected && !autoRedirectDone && address) {
@@ -573,14 +618,20 @@ export default function HomePage() {
       // If currently on the home tab, perform the redirect
       if (activeTab === "home") {
         setTimeout(() => {
-          setActiveTab("create") // Direct to create group instead of dashboard
+          // Check if user has existing groups
+          if (userGroups.length > 0) {
+            setActiveTab("dashboard") // Go to dashboard if groups exist
+            console.log("🔄 Auto-redirecting to dashboard - user has existing groups");
+          } else {
+            setActiveTab("options") // Go to group options if no groups
+            console.log("🔄 Auto-redirecting to group options - new user");
+          }
           setAutoRedirectDone(true) // Mark redirect as done
-          console.log("🔄 Auto-redirecting to create group page after wallet connection");
           
           // Show welcome message
           toast({
             title: "🔗 Wallet Connected",
-            description: "Welcome! Create a new group or join an existing one.",
+            description: userGroups.length > 0 ? "Welcome back! Your groups are loaded." : "Welcome! Choose to create or join a group.",
             duration: 3000,
           });
         }, 1500) // Increased delay to allow data loading
@@ -594,7 +645,7 @@ export default function HomePage() {
       setAdminApiKey("")
       console.log("🔌 Wallet disconnected, redirected to home page");
     }
-  }, [isConnected, activeTab, autoRedirectDone, address, toast])
+  }, [isConnected, activeTab, autoRedirectDone, address, toast, userGroups.length])
 
   useEffect(() => {
     const handleNavigateToCreate = () => {
@@ -918,6 +969,17 @@ export default function HomePage() {
             </button>
             <ClientOnly>
               <button
+                onClick={() => setActiveTab("options")}
+                className={
+                  "font-medium transition-colors " +
+                  (activeTab === "options" ? "text-concordia-pink" : "text-white/80 hover:text-concordia-pink")
+                }
+                disabled={!isConnected}
+                style={!isConnected ? { opacity: 0.5, pointerEvents: "none" } : {}}
+              >
+                {"Group Options"}
+              </button>
+              <button
                 onClick={() => setActiveTab("dashboard")}
                 className={
                   "font-medium transition-colors " +
@@ -983,6 +1045,15 @@ export default function HomePage() {
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsContent value="options">
+            <ClientOnly>
+              <GroupOptions 
+                onCreateGroup={() => setActiveTab("create")}
+                onJoinGroup={() => setJoinGroupModalOpen(true)}
+              />
+            </ClientOnly>
+          </TabsContent>
+
           <TabsContent value="home" className="space-y-20">
             {/* Hero Section */}
             <section className="text-center py-12">
@@ -1527,6 +1598,17 @@ export default function HomePage() {
       
       {/* Toast notifications */}
       <Toaster />
+      
+      {/* Join Group Modal */}
+      <JoinGroupModal
+        isOpen={joinGroupModalOpen}
+        onClose={() => setJoinGroupModalOpen(false)}
+        onJoinSuccess={(groupId, groupName) => {
+          console.log(`Successfully joined group: ${groupName} (${groupId})`)
+          // Refresh the page to reload groups
+          window.location.reload()
+        }}
+      />
     </div>
   )
 }

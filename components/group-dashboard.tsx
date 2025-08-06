@@ -211,7 +211,7 @@ export function GroupDashboard({
             <h2 className="text-4xl font-bold text-white mb-4">
               Your <span className="text-concordia-pink">Savings Dashboard</span>
             </h2>
-            
+
             {/* Aura Points Display */}
             {/* Removed Aura Points card here */}
             <p className="text-white/80 text-lg">Manage your active savings groups and track progress</p>

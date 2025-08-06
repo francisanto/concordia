@@ -347,7 +347,7 @@ async function getGroupInfo(groupId: string): Promise<any | null> {
 
 async function joinGroup(groupId: string, address: string, nickname: string): Promise<void> {
   try {
-    // Get group from localStorage
+    // Get group from localStorage first
     const { dataPersistenceService } = await import('@/lib/data-persistence')
     const group = await dataPersistenceService.getGroup(groupId)
     
@@ -392,6 +392,16 @@ async function joinGroup(groupId: string, address: string, nickname: string): Pr
     
     if (!result.success) {
       throw new Error("Failed to update group in localStorage")
+    }
+    
+    // Also try to update remote storage if available
+    try {
+      const { hybridStorageService } = await import('@/lib/hybrid-storage')
+      await hybridStorageService.saveGroup(group, address)
+      console.log("✅ Group updated in remote storage")
+    } catch (remoteError) {
+      console.log("⚠️ Remote update failed, but local update succeeded:", remoteError)
+      // Don't throw error if only remote fails
     }
     
     console.log("Successfully joined group:", groupId)
